@@ -1,0 +1,17 @@
+gymnasium
+matplotlib
+numpy
+pre-commit
+tqdm
+jax
+jax[cuda12]
+flax
+box2d-py
+optax
+orbax
+polars
+pygame
+rlax
+tqdm
+triton
+mypy
