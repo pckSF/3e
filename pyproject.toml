@@ -3,10 +3,11 @@ target-version = ['py39', 'py310', 'py311']
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py312"
 fix = true
-unfixable = []
 
+[tool.ruff.lint]
+unfixable = []
 select = [
   # pyflakes
   "F",
@@ -28,8 +29,8 @@ select = [
   "TID",
   # implicit string concatenation
   "ISC",
-  # type-checking imports
-  "TCH",
+  # flake8-type-checking
+  "TC",
   # comprehensions
   "C4",
 ]
