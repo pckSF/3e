@@ -9,7 +9,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from scs.utils_data import TrajectoryData
+from scs import utils
+from scs.data import TrajectoryData
 
 if TYPE_CHECKING:
     import gymnasium as gym
@@ -69,9 +70,9 @@ def collect_trajectories(
     Returns:
         A tuple containing:
             - A `TrajectoryData` object holding the collected states, actions,
-              rewards, next_states, and terminal signals.
+            rewards, next_states, and terminal signals.
             - The final `reset_mask`, indicating which environments terminated
-              during this collection phase, to be used in the next call.
+            during this collection phase, to be used in the next call.
     """
     n_envs = envs.num_envs
     max_steps = int(config.n_actor_steps)
@@ -84,7 +85,10 @@ def collect_trajectories(
     terminals = np.zeros((max_steps, n_envs), dtype=np.bool_)
 
     if reset_mask.any():
-        state = envs.reset(options={"reset_mask": reset_mask})[0]
+        continue_state = envs.reset(options={"reset_mask": reset_mask})[0]
+        utils.states_healthcheck(state, continue_state, reset_mask)
+        state = continue_state
+
     for ts in range(max_steps):
         action, _a_means, _a_log_stds = actor_action(
             model,
@@ -105,6 +109,7 @@ def collect_trajectories(
             state = envs.reset(options={"reset_mask": reset_mask})[0]
         else:
             state = next_state
+
     return TrajectoryData(
         states=jnp.asarray(states, dtype=jnp.float32),
         actions=jnp.asarray(actions, dtype=jnp.uint32),
