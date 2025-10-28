@@ -1,5 +1,7 @@
 gymnasium
+gymnasium[mujoco]
 matplotlib
+ml_collections
 numpy
 pre-commit
 tqdm
