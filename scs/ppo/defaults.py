@@ -5,7 +5,7 @@ from typing import (
     cast,
 )
 
-from scs.utils_config import make_config
+from scs.configuration import make_config
 
 
 class PPOConfig(Protocol):
