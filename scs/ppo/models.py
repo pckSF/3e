@@ -11,27 +11,78 @@ if TYPE_CHECKING:
 class ActorCritic(nnx.Module):
     def __init__(self, rngs: nnx.Rngs) -> None:
         self.linear_1: nnx.Linear = nnx.Linear(
-            in_features=4,
-            out_features=128,
+            in_features=2,
+            out_features=16,
             kernel_init=nnx.initializers.glorot_uniform(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
-        self.actor: nnx.Linear = nnx.Linear(
-            in_features=128,
-            out_features=2,
+        self.layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
+            num_features=16,
+            rngs=rngs,
+        )
+        self.linear_2 = nnx.Linear(
+            in_features=16,
+            out_features=16,
             kernel_init=nnx.initializers.glorot_uniform(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
-        self.citic: nnx.Linear = nnx.Linear(
-            in_features=128,
+        self.layernorm_2: nnx.LayerNorm = nnx.LayerNorm(
+            num_features=16,
+            rngs=rngs,
+        )
+        self.critic_linear_1: nnx.Linear = nnx.Linear(
+            in_features=16,
+            out_features=16,
+            kernel_init=nnx.initializers.glorot_uniform(),
+            bias_init=nnx.initializers.zeros,
+            rngs=rngs,
+        )
+        self.critic_layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
+            num_features=16,
+            rngs=rngs,
+        )
+        self.critic: nnx.Linear = nnx.Linear(
+            in_features=16,
+            out_features=1,
+            kernel_init=nnx.initializers.glorot_uniform(),
+            bias_init=nnx.initializers.zeros,
+            rngs=rngs,
+        )
+        self.actor_linear_1: nnx.Linear = nnx.Linear(
+            in_features=16,
+            out_features=16,
+            kernel_init=nnx.initializers.glorot_uniform(),
+            bias_init=nnx.initializers.zeros,
+            rngs=rngs,
+        )
+        self.actor_layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
+            num_features=16,
+            rngs=rngs,
+        )
+        self.actor_mean: nnx.Linear = nnx.Linear(
+            in_features=16,
+            out_features=1,
+            kernel_init=nnx.initializers.glorot_uniform(),
+            bias_init=nnx.initializers.zeros,
+            rngs=rngs,
+        )
+        self.actor_log_std: nnx.Linear = nnx.Linear(
+            in_features=16,
             out_features=1,
             kernel_init=nnx.initializers.glorot_uniform(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
 
-    def __call__(self, x: jax.Array) -> tuple[jax.Array, jax.Array]:
-        x = nnx.relu(self.linear_1(x))
-        return self.actor(x), self.citic(x)
+    def __call__(self, x: jax.Array) -> tuple[jax.Array, jax.Array, jax.Array]:
+        x = nnx.relu(self.layernorm_1(self.linear_1(x)))
+        x = nnx.relu(self.layernorm_2(self.linear_2(x)))
+        c = nnx.relu(self.critic_layernorm_1(self.critic_linear_1(x)))
+        a = nnx.relu(self.actor_layernorm_1(self.actor_linear_1(x)))
+        return (
+            self.actor_mean(a),
+            self.actor_log_std(a),
+            self.critic(c),
+        )
