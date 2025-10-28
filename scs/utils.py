@@ -47,6 +47,7 @@ def make_config(
     return config_dict.ConfigDict(config)
 
 
+@partial(jax.jit, static_argnums=(2,))
 def masked_standardize(
     x: jax.Array, mask: jax.Array, epsilon: float = 1e-5
 ) -> jax.Array:
@@ -74,14 +75,14 @@ def masked_standardize(
     return ((x - mean) / std) * mask
 
 
-@partial(jax.jit, static_argnums=(2, 3))
+@partial(jax.jit, static_argnums=(1,))
 def get_expected_return(
-    rewards: jax.Array, mask: jax.Array, gamma: float, standardize: bool = True
+    rewards: jax.Array,
+    gamma: float,
 ) -> jax.Array:
     """Computes the discounted returns from a sequence of rewards.
 
-    This function calculates the cumulative discounted rewards for each timestep,
-    optionally standardizing the result.
+    This function calculates the cumulative discounted rewards for each timestep.
 
     Note:
         This implementation may face numerical instability with a large number
@@ -89,9 +90,7 @@ def get_expected_return(
 
     Args:
         rewards: An array of rewards.
-        mask: A binary mask to exclude padded steps from the calculation.
         gamma: The discount factor for future rewards.
-        standardize: If True, the calculated returns will be standardized.
 
     Returns:
         An array of discounted returns.
@@ -99,10 +98,8 @@ def get_expected_return(
     discounts = (gamma ** jnp.arange(rewards.shape[0])).reshape(
         (rewards.shape[0],) + (1,) * (rewards.ndim - 1)
     )  # Match dimension of discount to rewards which can be (n,) or (n, m)
-    discounted_rewards = rewards * mask * discounts
+    discounted_rewards = rewards * discounts
     returns = jnp.cumsum(discounted_rewards[::-1], axis=0)[::-1] / discounts
-    if standardize:
-        returns = masked_standardize(returns, mask)
     return returns
 
 
