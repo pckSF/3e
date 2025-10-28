@@ -112,8 +112,7 @@ def evaluation_trajectory(
 
     This function evaluates the agent's performance by running it until all
     parallel episodes terminate or a maximum step limit is reached. It
-    accumulates the total reward for each episode. Unlike training rollouts,
-    this function is meant to measure the agent's raw performance.
+    accumulates the total reward for each episode.
 
     Args:
         model: The `ActorCritic` model to be evaluated.
@@ -130,7 +129,7 @@ def evaluation_trajectory(
 
     state = envs.reset()[0]
     terminated = np.zeros((n_envs,), dtype=bool)
-    for ts in range(10000):
+    for _ts in range(10000):
         action, _a_noise, _a_means, _a_log_stds = actor_action(
             model,
             jnp.asarray(state, dtype=jnp.float32),
