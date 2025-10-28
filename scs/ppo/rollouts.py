@@ -64,7 +64,7 @@ def collect_trajectories(
     terminals = np.zeros((max_steps, n_envs), dtype=np.bool_)
 
     if reset_mask.any():
-        continue_state = envs.reset(options={"reset_mask": reset_mask})[0]
+        continue_state: np.ndarray = envs.reset(options={"reset_mask": reset_mask})[0]
         utils.states_healthcheck(state, continue_state, reset_mask)
         state = continue_state
 
@@ -75,7 +75,7 @@ def collect_trajectories(
             rng,
             config,
         )
-        next_state, reward, terminal, truncated, _info = envs.step(
+        next_state, reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
             np.tanh(np.asarray(action + a_noise))
         )
 
@@ -127,7 +127,7 @@ def evaluation_trajectory(
     n_envs = int(config.n_actors)
     rewards = np.zeros((n_envs,), dtype=np.float32)
 
-    state = envs.reset()[0]
+    state: np.ndarray = envs.reset()[0]
     terminated = np.zeros((n_envs,), dtype=bool)
     for _ts in range(10000):
         action, _a_noise, _a_means, _a_log_stds = actor_action(
@@ -136,7 +136,7 @@ def evaluation_trajectory(
             rng,
             config,
         )
-        state, step_reward, terminal, truncated, _info = envs.step(
+        state, step_reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
             np.tanh(np.asarray(action))
         )
 

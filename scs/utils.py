@@ -16,15 +16,15 @@ def compare_states(
 ) -> bool:
     """Compares two state arrays for equality."""
     if mask is not None:
-        return jnp.array_equal(state1[mask], state2[mask])
-    return jnp.array_equal(state1, state2)
+        state1, state2 = state1[mask], state2[mask]
+    return bool(jnp.array_equal(state1, state2))
 
 
 def states_healthcheck(
     state1: jax.Array | np.ndarray,
     state2: jax.Array | np.ndarray,
     mask: jax.Array | np.ndarray,
-) -> bool:
+) -> None:
     if not compare_states(state1, state2, mask):
         raise ValueError(
             f"Relevant state arrays do not match!\n"
