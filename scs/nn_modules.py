@@ -87,10 +87,8 @@ class NNTrainingStateSoftTarget(NNTrainingState):
         Returns:
             A new state with updated model, target model, and optimizer states.
         """
-        # Apply gradients to the main model using the parent's method
         updated_base_state = super().apply_gradients(grads)
 
-        # Perform the soft update for the target network
         target_model_state = jax.tree.map(
             lambda tp, p: self.tau * p + (1 - self.tau) * tp,
             self.target_model_state,
