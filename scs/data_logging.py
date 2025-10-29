@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 from datetime import datetime
 import logging
 import multiprocessing
@@ -44,7 +45,7 @@ def spawn_logger_process(log_dir: Path) -> Connection:
                 )  # This call blocks until a message is received
                 if isinstance(message, tuple):
                     pass
-                elif isinstance(message, str) and message == "False":
+                elif isinstance(message, str) and message == "shutdown":
                     logger.info("Shutdown command received. Exiting.")
                     break
                 else:
@@ -58,4 +59,15 @@ def spawn_logger_process(log_dir: Path) -> Connection:
     process = multiprocessing.Process(target=logger_process, args=(pipe_receive,))
     process.daemon = True
     process.start()
+
+    def cleanup():
+        logger.info("Parent process is exiting. Terminating writer process...")
+        if process.is_alive():
+            pipe_send.close()
+            process.terminate()
+            process.join(timeout=1)
+        logger.info("Writer process terminated.")
+
+    atexit.register(cleanup)
+
     return pipe_send
