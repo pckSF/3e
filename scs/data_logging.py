@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
+import multiprocessing
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from multiprocessing.connection import Connection
 
 
 def _create_file_logger(log_dir: Path, timestamp: str) -> logging.Logger:
@@ -22,12 +27,35 @@ def _create_file_logger(log_dir: Path, timestamp: str) -> logging.Logger:
     return logger
 
 
-class DataLogger:
-    def __init__(self, log_dir: str | Path = "logs") -> None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_dir = Path(log_dir).resolve()
-        self.log_dir = log_dir / timestamp
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+def spawn_logger_process(log_dir: Path) -> Connection:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_dir = Path(log_dir).resolve()
+    log_dir = log_dir / timestamp
+    log_dir.mkdir(parents=True, exist_ok=True)
 
-        self.logger = _create_file_logger(self.log_dir, timestamp)
-        self.logger.info(f"DataLogger initialized at {self.log_dir}")
+    logger = _create_file_logger(log_dir, timestamp)
+    logger.info(f"DataLogger initialized at {log_dir}")
+
+    def logger_process(pipe_conn: Connection) -> None:
+        while True:
+            try:
+                message = (
+                    pipe_conn.recv()
+                )  # This call blocks until a message is received
+                if isinstance(message, tuple):
+                    pass
+                elif isinstance(message, str) and message == "False":
+                    logger.info("Shutdown command received. Exiting.")
+                    break
+                else:
+                    logger.info(f"No process defined for message: {message}")
+
+            except EOFError:
+                logger.info("Pipe connection closed unexpectedly. Shutting down.")
+                break
+
+    pipe_send, pipe_receive = multiprocessing.Pipe()
+    process = multiprocessing.Process(target=logger_process, args=(pipe_receive,))
+    process.daemon = True
+    process.start()
+    return pipe_send
