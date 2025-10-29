@@ -9,7 +9,8 @@ import optax
 
 
 class NNTrainingState(struct.PyTreeNode):
-    """Training state container for a Neural Network.
+    """Training state container for a Neural Network that can be passed through
+    JAX transformations.
 
     Attributes:
         model_def: The static graph definition of the neural network.
@@ -66,7 +67,8 @@ class NNTrainingState(struct.PyTreeNode):
 
 
 class NNTrainingStateSoftTarget(NNTrainingState):
-    """Training state with a soft-updating target network.
+    """Training state with a soft-updating target network that can be passed through
+    JAX transformations.
 
     Attributes:
         target_model_state: The state of the target network.
