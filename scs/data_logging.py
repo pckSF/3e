@@ -111,7 +111,8 @@ def _save_checkpoint(
 
 
 INSTRUCTION_SET: dict[
-    DataLoggerMessage, tuple[Callable[[Path, str, Any], None], Callable[[Any], Any]]
+    type[DataLoggerMessage],
+    tuple[Callable[[Path, str, Any], None], Callable[[Any], Any]],
 ] = {
     MessageCSVRow: (_write_csv_row, _preprocess_csv_row),
     MessageMetadata: (_save_metadata, lambda x: x),
@@ -149,8 +150,6 @@ def spawn_logger_process(log_dir: str | Path) -> Connection:
             try:
                 message: DataLoggerMessage | MessageShutdown = pipe_conn.recv()
                 if isinstance(message, DataLoggerMessage):
-                    if not _check_message(message, logger):
-                        continue
                     _process_message(resolved_log_dir, message, logger)
                 elif isinstance(message, MessageShutdown):
                     logger.info("Shutdown command received. Exiting.")
@@ -187,36 +186,6 @@ def spawn_logger_process(log_dir: str | Path) -> Connection:
     return pipe_send
 
 
-def _check_message(message: DataLoggerMessage, logger: logging.Logger) -> bool:
-    """Validates the structure and content of a message tuple."""
-    if not isinstance(message, DataLoggerMessage):
-        logger.error(
-            f"Invalid message format: Expected DataLoggerMessage; "
-            f"received {type(message)}"
-        )
-        return False
-    if not isinstance(message.filename, str):
-        logger.error(
-            f"Invalid filename type: Expected str; received {type(message.filename)}"
-        )
-        return False
-    if isinstance(message, MessageCSVRow):
-        if not isinstance(message.data, (list, jax.Array, np.ndarray)):
-            logger.error(
-                f"Invalid data type for CSV row: Expected list, jax.Array, or "
-                f"np.ndarray; received {type(message.data)}"
-            )
-            return False
-    if isinstance(message, MessageMetadata):
-        if not isinstance(message.data, dict):
-            logger.error(
-                f"Invalid data type for Metadata: Expected dict; "
-                f"received {type(message.data)}"
-            )
-            return False
-    return True
-
-
 def _process_message(
     log_dir: Path, message: DataLoggerMessage, logger: logging.Logger
 ) -> None:
@@ -225,7 +194,7 @@ def _process_message(
         processed_data = preprocess_function(message.data)
         write_function(log_dir, message.filename, processed_data)
         logger.info(f"Processed message for {type(message)}: {message.filename}")
-    except Exception:
+    except Exception as e:
         logger.exception(
-            f"Error processing message for {type(message)}: {message.filename}"
+            f"Error processing message {type(message)} with {message.filename}: {e} "
         )
