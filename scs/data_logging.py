@@ -84,7 +84,12 @@ def _save_checkpoint(
     checkpoint: Any,
 ) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
-    count = len(list(log_dir.glob(f"{filename}_*.pkl")))
+    nums = (
+        int(p.stem.split("_")[-1])
+        for p in log_dir.glob(f"{filename}_*.pkl")
+        if p.stem.split("_")[-1].isdigit()
+    )
+    count = max(nums, default=0) + 1
     filepath = (log_dir / f"{filename}_{count:05d}").with_suffix(".pkl")
     with open(filepath, "wb") as pkl_file:
         pickle.dump(checkpoint, pkl_file)
