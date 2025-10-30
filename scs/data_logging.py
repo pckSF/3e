@@ -53,8 +53,8 @@ def _preprocess_csv_row(data: Any) -> list[int | float]:
     if isinstance(data, (jax.Array, np.ndarray)):
         return _flatten_array(data)
     raise TypeError(
-        f"Unsupported type for CSV row: {type(data)}. "
-        f"Expected list, jax.Array, or np.ndarray."
+        f"Unsupported type for CSV row: Expected list, jax.Array, or np.ndarray; "
+        f"received {type(data)}."
     )
 
 
@@ -72,7 +72,10 @@ def _process_metadata(data: Any) -> Metadata:
         return asdict(data)
     if isinstance(data, dict):
         return data
-    raise TypeError(f"Cannot process type {type(data)} into metadata.")
+    raise TypeError(
+        f"Cannot process type into metadata. Expected dataclass or dict; "
+        f"received {type(data)}."
+    )
 
 
 def _save_metadata(log_dir: Path, filename: str, data: Metadata) -> None:
@@ -145,7 +148,10 @@ def spawn_logger_process(log_dir: str | Path) -> Connection:
                     logger.info("Shutdown command received. Exiting.")
                     break
                 else:
-                    logger.info(f"Received invalid message type: {type(message)}")
+                    logger.info(
+                        f"Received invalid message type. Expected tuple or "
+                        f"'shutdown' string; received {type(message)}"
+                    )
 
             except EOFError:
                 logger.info("Pipe connection closed unexpectedly. Shutting down.")
@@ -193,8 +199,8 @@ def _check_message(message: Message, logger: logging.Logger) -> bool:
 
     if instruction not in INSTRUCTION_SET:
         logger.warning(
-            f"Invalid instruction '{instruction}'. Expected one of "
-            f"{list(INSTRUCTION_SET.keys())}."
+            f"Invalid instruction. Expected one of "
+            f"{list(INSTRUCTION_SET.keys())}; received '{instruction}'."
         )
         return False
     return True
