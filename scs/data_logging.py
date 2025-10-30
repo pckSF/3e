@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import atexit
 import csv
+from dataclasses import (
+    asdict,
+    is_dataclass,
+)
 from datetime import datetime
 import json
 import logging
@@ -11,6 +15,8 @@ import pickle
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
+    TypeAlias,
 )
 
 import jax
@@ -20,31 +26,36 @@ if TYPE_CHECKING:
     from multiprocessing.connection import Connection
 
 
+# --- Type Aliases for Clarity ---
+Primitive: TypeAlias = str | int | float | bool
+Metadata: TypeAlias = dict[str, "Primitive | list[Primitive]"]
+Message: TypeAlias = tuple[Any, str, str]  # (data, filename, instruction)
+WriteFn: TypeAlias = Callable[[Path, str, Any], None]
+PreprocessFn: TypeAlias = Callable[[Any], Any]
+
+
 def _flatten_array(array: jax.Array | np.ndarray) -> list[int | float]:
     array = np.asarray(array)
     if array.ndim == 0:
         return [array.item()]
-    elif array.ndim == 1:
+    if array.ndim == 1:
         return array.tolist()
-    elif array.ndim == 2:
+    if array.ndim == 2:
         return array.reshape(-1).tolist()
-    else:
-        raise ValueError(
-            f"Array with ndim > 2 not supported; "
-            f"Received array with shape {array.shape}"
-        )
+    raise ValueError(
+        f"Array with ndim > 2 not supported; Received array with shape {array.shape}"
+    )
 
 
-def _preprocess_csv_row(row: Any) -> list[int | float]:
-    if isinstance(row, list):
-        return row
-    elif isinstance(row, (jax.Array, np.ndarray)):
-        return _flatten_array(row)
-    else:
-        raise TypeError(
-            f"Unsupported type for CSV row: {type(row)}. "
-            f"Expected list, jax.Array, or np.ndarray."
-        )
+def _preprocess_csv_row(data: Any) -> list[int | float]:
+    if isinstance(data, list):
+        return data
+    if isinstance(data, (jax.Array, np.ndarray)):
+        return _flatten_array(data)
+    raise TypeError(
+        f"Unsupported type for CSV row: {type(data)}. "
+        f"Expected list, jax.Array, or np.ndarray."
+    )
 
 
 def _write_csv_row(log_dir: Path, filename: str, row: list[int | float]) -> None:
@@ -55,27 +66,22 @@ def _write_csv_row(log_dir: Path, filename: str, row: list[int | float]) -> None
         writer.writerow(row)
 
 
-def _process_metadata(
-    metadata: dict[str, str | int | float],
-) -> dict[str, str | int | float]:
-    if not isinstance(metadata, dict):
-        raise TypeError(f"Metadata must be a dictionary; received {type(metadata)}")
-    return metadata
+def _process_metadata(data: Any) -> Metadata:
+    """Converts a dataclass or dictionary to a valid metadata format."""
+    if is_dataclass(data):
+        return asdict(data)
+    if isinstance(data, dict):
+        return data
+    raise TypeError(f"Cannot process type {type(data)} into metadata.")
 
 
-def _save_metadata(
-    log_dir: Path, filename: str, data: dict[str, str | int | float]
-) -> None:
+def _save_metadata(log_dir: Path, filename: str, data: Metadata) -> None:
     filepath = (log_dir / filename).with_suffix(".json")
     if filepath.exists():
         raise FileExistsError(f"Metadata file {filepath} already exists.")
     filepath.parent.mkdir(parents=True, exist_ok=True)
     with open(filepath, "w") as json_file:
         json.dump(data, json_file, indent=4)
-
-
-def _preprocess_checkpoint(checkpoint: Any) -> Any:
-    return checkpoint
 
 
 def _save_checkpoint(
@@ -95,10 +101,10 @@ def _save_checkpoint(
         pickle.dump(checkpoint, pkl_file)
 
 
-INSTRUCTION_SET = {
+INSTRUCTION_SET: dict[str, tuple[WriteFn, PreprocessFn]] = {
     "csv": (_write_csv_row, _preprocess_csv_row),
     "metadata": (_save_metadata, _process_metadata),
-    "checkpoint": (_save_checkpoint, _preprocess_checkpoint),
+    "checkpoint": (_save_checkpoint, lambda x: x),
 }
 
 
@@ -119,34 +125,35 @@ def _create_file_logger(log_dir: Path, timestamp: str) -> logging.Logger:
     return logger
 
 
-def spawn_logger_process(log_dir: Path) -> Connection:
+def spawn_logger_process(log_dir: str | Path) -> Connection:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = Path(log_dir).resolve()
-    log_dir = log_dir / timestamp
-    log_dir.mkdir(parents=True, exist_ok=True)
+    resolved_log_dir = Path(log_dir).resolve() / timestamp
+    resolved_log_dir.mkdir(parents=True, exist_ok=True)
 
-    logger = _create_file_logger(log_dir, timestamp)
-    logger.info(f"DataLogger initialized at {log_dir}")
+    logger = _create_file_logger(resolved_log_dir, timestamp)
+    logger.info(f"DataLogger initialized at {resolved_log_dir}")
 
     def logger_process(pipe_conn: Connection) -> None:
         while True:
             try:
-                message = (
-                    pipe_conn.recv()
-                )  # This call blocks until a message is received
+                message: Message | str = pipe_conn.recv()
                 if isinstance(message, tuple):
                     if not _check_message(message, logger):
                         continue
-                    _process_message(log_dir, message, logger)
+                    _process_message(resolved_log_dir, message, logger)
                 elif isinstance(message, str) and message == "shutdown":
                     logger.info("Shutdown command received. Exiting.")
                     break
                 else:
-                    logger.info(f"No process defined for message: {message}")
+                    logger.info(f"Received invalid message type: {type(message)}")
 
             except EOFError:
                 logger.info("Pipe connection closed unexpectedly. Shutting down.")
                 break
+            except Exception as e:
+                logger.exception(
+                    f"An unexpected error occurred in the logger process: {e}"
+                )
 
     pipe_send, pipe_receive = multiprocessing.Pipe()
     process = multiprocessing.Process(target=logger_process, args=(pipe_receive,))
@@ -166,30 +173,39 @@ def spawn_logger_process(log_dir: Path) -> Connection:
     return pipe_send
 
 
-def _check_message(message: tuple, logger: logging.Logger) -> bool:
-    if not len(message) == 3:
-        logger.warning(f"Expected message tuple of length 3, got {len(message)}")
-        return False
-    if not isinstance(message[1], str):
+def _check_message(message: Message, logger: logging.Logger) -> bool:
+    """Validates the structure and content of a message tuple."""
+    if not isinstance(message, tuple) or len(message) != 3:
         logger.warning(
-            f"Expected second element of message to be str; received {type(message[1])}"
+            f"Invalid message format. Expected (data, filename, instruction); "
+            f"received type {type(message)} with length {len(message)}."
         )
         return False
-    if message[2] not in INSTRUCTION_SET:
+
+    _, filename, instruction = message
+
+    if not isinstance(filename, str):
         logger.warning(
-            f"Expected third element of message to be one of {INSTRUCTION_SET}; "
-            f"received {message[2]}"
+            f"Invalid message content. Expected a filename string for "
+            f"(data, filename, instruction); received type {type(filename)}."
+        )
+        return False
+
+    if instruction not in INSTRUCTION_SET:
+        logger.warning(
+            f"Invalid instruction '{instruction}'. Expected one of "
+            f"{list(INSTRUCTION_SET.keys())}."
         )
         return False
     return True
 
 
-def _process_message(log_dir: Path, message: tuple, logger: logging.Logger) -> None:
+def _process_message(log_dir: Path, message: Message, logger: logging.Logger) -> None:
     data, filename, instruction = message
-    process_function, preprocess_function = INSTRUCTION_SET[instruction]
+    write_function, preprocess_function = INSTRUCTION_SET[instruction]
     try:
-        data = preprocess_function(data)
-        process_function(log_dir, filename, data)
+        processed_data = preprocess_function(data)
+        write_function(log_dir, filename, processed_data)
         logger.info(f"Processed message for {instruction}: {filename}")
-    except Exception as e:
-        logger.error(f"Error processing message: {message} : {e}")
+    except Exception:
+        logger.exception(f"Error processing message for {instruction}: {filename}")
