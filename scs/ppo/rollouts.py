@@ -26,7 +26,7 @@ def collect_trajectories(
     state: np.ndarray,
     rng: nnx.Rngs,
     config: PPOConfig,
-) -> tuple[TrajectoryData, np.ndarray]:
+) -> tuple[TrajectoryData, np.ndarray, np.ndarray]:
     """Collects trajectories by interacting with parallel environments.
 
     This function runs the agent's policy in a vectorized environment for a
@@ -66,7 +66,7 @@ def collect_trajectories(
     if reset_mask.any():
         continue_state: np.ndarray = envs.reset(options={"reset_mask": reset_mask})[0]
         # TODO: Remove this check once it works reliably
-        utils.states_healthcheck(state, continue_state, reset_mask)
+        utils.states_healthcheck(state, continue_state, np.logical_not(reset_mask))
         state = continue_state
 
     for ts in range(max_steps):
@@ -92,15 +92,19 @@ def collect_trajectories(
         else:
             state = next_state
 
-    return TrajectoryData(
-        states=jnp.asarray(states, dtype=jnp.float32),
-        actions=jnp.asarray(actions, dtype=jnp.uint32),
-        rewards=jnp.asarray(rewards, dtype=jnp.float32),
-        next_states=jnp.asarray(next_states, dtype=jnp.float32),
-        terminals=jnp.asarray(terminals, dtype=jnp.uint32),
-        n_steps=max_steps,
-        agents=jnp.arange(n_envs),
-    ), reset_mask
+    return (
+        TrajectoryData(
+            states=jnp.asarray(states, dtype=jnp.float32),
+            actions=jnp.asarray(actions, dtype=jnp.uint32),
+            rewards=jnp.asarray(rewards, dtype=jnp.float32),
+            next_states=jnp.asarray(next_states, dtype=jnp.float32),
+            terminals=jnp.asarray(terminals, dtype=jnp.uint32),
+            n_steps=max_steps,
+            agents=jnp.arange(n_envs),
+        ),
+        reset_mask,
+        state,
+    )
 
 
 def evaluation_trajectory(

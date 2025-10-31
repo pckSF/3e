@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from flax import nnx
 import gymnasium as gym
+import numpy as np
 import optax
 
 from scs.nn_modules import NNTrainingState
@@ -10,7 +11,7 @@ from scs.ppo.defaults import (
     get_config,
 )
 from scs.ppo.models import ActorCritic
-from scs.ppo.rollouts import evaluation_trajectory
+from scs.ppo.rollouts import collect_trajectories
 
 ############################################################################
 # Hyperparameters
@@ -57,9 +58,16 @@ train_state = NNTrainingState.create(
     optimizer=optax.adam(agent_config.learning_rate),
 )
 
-rewards = evaluation_trajectory(
-    model=model,
-    envs=envs,
-    rng=rngs,
-    config=agent_config,
-)
+reset_mask = np.ones((agent_config.n_actors,), dtype=bool)
+state = envs.reset()[0]
+for _ in range(5):
+    trajectory, reset, state = collect_trajectories(
+        model=model,
+        envs=envs,
+        reset_mask=reset_mask,
+        state=state,
+        rng=rngs,
+        config=agent_config,
+    )
+    print(f"Reset Mask: {reset}")
+    print(f"State: {state}")
