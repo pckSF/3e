@@ -66,16 +66,24 @@ class NNTrainingState(struct.PyTreeNode):
         )
 
 
-class NNTrainingStateSoftTarget(NNTrainingState):
+class NNTrainingStateSoftTarget(struct.PyTreeNode):
     """Training state with a soft-updating target network that can be passed through
     JAX transformations.
 
     Attributes:
+        model_def: The static graph definition of the neural network.
+        model_state: The dynamic state of the model, including its parameters.
         target_model_state: The state of the target network.
+        optimizer: The Optax optimizer used for gradient updates.
+        optimizer_state: The current state of the optimizer.
         tau: The interpolation factor for the soft update.
     """
 
+    model_def: nnx.GraphDef = struct.field(pytree_node=False)
+    model_state: nnx.State
     target_model_state: nnx.State
+    optimizer: optax.GradientTransformation = struct.field(pytree_node=False)
+    optimizer_state: optax.OptState
     tau: float = struct.field(pytree_node=False)
 
     def apply_gradients(self, grads: nnx.State) -> NNTrainingStateSoftTarget:
@@ -87,16 +95,17 @@ class NNTrainingStateSoftTarget(NNTrainingState):
         Returns:
             A new state with updated model, target model, and optimizer states.
         """
-        updated_base_state = super().apply_gradients(grads)
+        updates, optimizer_state = self.optimizer.update(grads, self.optimizer_state)
+        model_state = optax.apply_updates(self.model_state, updates)
 
         target_model_state = jax.tree.map(
             lambda tp, p: self.tau * p + (1 - self.tau) * tp,
             self.target_model_state,
-            updated_base_state.model_state,
+            model_state,
         )
         return self.replace(
-            model_state=updated_base_state.model_state,
-            optimizer_state=updated_base_state.optimizer_state,
+            model_state=model_state,
+            optimizer_state=optimizer_state,
             target_model_state=target_model_state,
         )
 
@@ -105,16 +114,16 @@ class NNTrainingStateSoftTarget(NNTrainingState):
         cls,
         model_def: nnx.GraphDef,
         model_state: nnx.State,
-        tau: float,
         optimizer: optax.GradientTransformation,
+        tau: float,
     ) -> NNTrainingStateSoftTarget:
         """Creates a new `NNTrainingStateSoftTarget` instance.
 
         Args:
             model_def: The static graph definition of the neural network.
             model_state: The initial state of the model.
-            tau: The interpolation factor for the soft update.
             optimizer: The Optax optimizer to use.
+            tau: The interpolation factor for the soft update.
 
         Returns:
             A new `NNTrainingStateSoftTarget` instance.
@@ -147,7 +156,7 @@ def soft_update_target_model(
         A new target model with updated parameters.
     """
     model_params = nnx.state(model)
-    graph_def, target_params, batch_stats = nnx.split(
+    graph_def, target_params, batch_stats = nnx.split(  # type: ignore[misc]
         model_target, nnx.Param, nnx.BatchStat
     )
     updated_params = jax.tree.map(
