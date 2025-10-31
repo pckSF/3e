@@ -135,9 +135,15 @@ def _save_checkpoint(
             f"Unsupported type for checkpoint: Expected nnx.State; "
             f"received {type(data)}."
         )
+    checkpoint_numbers = (
+        int(p.stem.split("_")[-1])
+        for p in log_dir.glob(f"{filename}_*")
+        if p.stem.split("_")[-1].isdigit()
+    )
+    count = max(checkpoint_numbers, default=0) + 1
     with ocp.StandardCheckpointer() as checkpointer:
         checkpointer.save(
-            log_dir / filename,
+            log_dir / f"{filename}_{count:05d}",
             data,
         )
 
@@ -258,7 +264,9 @@ def _process_message(
     try:
         processed_data = preprocess_function(message.data)
         write_function(log_dir, message.filename, processed_data)
-        logger.info(f"Processed message for {type(message)}: {message.filename}")
+        logger.info(
+            f"Processed message for {type(message).__name__}: {message.filename}"
+        )
     except Exception as e:
         logger.exception(
             f"Error processing message {type(message)} with {message.filename}: {e} "
