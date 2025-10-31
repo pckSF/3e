@@ -26,8 +26,8 @@ def actor_action(
     an action, and exploration noise.
     """
     a_means, a_log_stds, _values = model(states)
-    noise = jax.random.normal(rng.noise(), (config.n_actors,)) * config.action_noise
+    noise = jax.random.normal(rng.noise(), shape=a_means.shape) * config.action_noise
     actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
-        rng.action_seelct(), (config.n_actors,)
+        rng.action_select(), shape=a_means.shape
     )
     return actions, noise, a_means, a_log_stds

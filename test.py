@@ -10,6 +10,7 @@ from scs.ppo.defaults import (
     get_config,
 )
 from scs.ppo.models import ActorCritic
+from scs.ppo.rollouts import evaluation_trajectory
 
 ############################################################################
 # Hyperparameters
@@ -54,4 +55,11 @@ train_state = NNTrainingState.create(
     model_def=nnx.graphdef(model),
     model_state=nnx.state(model, nnx.Param),
     optimizer=optax.adam(agent_config.learning_rate),
+)
+
+rewards = evaluation_trajectory(
+    model=model,
+    envs=envs,
+    rng=rngs,
+    config=agent_config,
 )

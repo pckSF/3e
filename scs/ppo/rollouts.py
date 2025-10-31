@@ -65,6 +65,7 @@ def collect_trajectories(
 
     if reset_mask.any():
         continue_state: np.ndarray = envs.reset(options={"reset_mask": reset_mask})[0]
+        # TODO: Remove this check once it works reliably
         utils.states_healthcheck(state, continue_state, reset_mask)
         state = continue_state
 
@@ -142,7 +143,12 @@ def evaluation_trajectory(
 
         rewards += step_reward * np.logical_not(terminated)
 
-        terminated = np.logical_or(terminal, truncated)
+        reset_mask = np.logical_or(terminal, truncated)
+        terminated = np.logical_or(terminated, terminal)
+        if reset_mask.any():
+            # Required to avoid error raised when passing an action to a terminated
+            # environment. TODO: Better way to handle this?
+            state = envs.reset(options={"reset_mask": terminated})[0]
         if terminated.all():
             break
     return rewards
