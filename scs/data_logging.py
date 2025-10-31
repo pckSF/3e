@@ -7,7 +7,6 @@ import json
 import logging
 import multiprocessing
 from pathlib import Path
-import pickle
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -16,8 +15,10 @@ from typing import (
     TypeAlias,
 )
 
+from flax import nnx
 import jax
 import numpy as np
+import orbax.checkpoint as ocp
 
 if TYPE_CHECKING:
     from multiprocessing.connection import Connection
@@ -43,7 +44,7 @@ class MessageMetadata(DataLoggerMessage):
 
 
 class MessageCheckpoint(DataLoggerMessage):
-    data: Any
+    data: nnx.State
 
 
 def _flatten_array(array: jax.Array | np.ndarray) -> list[int | float]:
@@ -96,18 +97,18 @@ def _save_metadata(
 def _save_checkpoint(
     log_dir: Path,
     filename: str,
-    checkpoint: Any,
+    data: nnx.State,
 ) -> None:
-    log_dir.mkdir(parents=True, exist_ok=True)
-    nums = (
-        int(p.stem.split("_")[-1])
-        for p in log_dir.glob(f"{filename}_*.pkl")
-        if p.stem.split("_")[-1].isdigit()
-    )
-    count = max(nums, default=0) + 1
-    filepath = (log_dir / f"{filename}_{count:05d}").with_suffix(".pkl")
-    with open(filepath, "wb") as pkl_file:
-        pickle.dump(checkpoint, pkl_file)
+    if not isinstance(data, nnx.State):
+        raise TypeError(
+            f"Unsupported type for checkpoint: Expected nnx.State; "
+            f"received {type(data)}."
+        )
+    with ocp.StandardCheckpointer() as checkpointer:
+        checkpointer.save(
+            log_dir / filename,
+            data,
+        )
 
 
 INSTRUCTION_SET: dict[
