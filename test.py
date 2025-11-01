@@ -60,14 +60,11 @@ train_state = NNTrainingState.create(
 
 reset_mask = np.ones((agent_config.n_actors,), dtype=bool)
 state = envs.reset()[0]
-for _ in range(5):
-    trajectory, reset, state = collect_trajectories(
-        model=model,
-        envs=envs,
-        reset_mask=reset_mask,
-        state=state,
-        rng=rngs,
-        config=agent_config,
-    )
-    print(f"Reset Mask: {reset}")
-    print(f"State: {state}")
+trajectory, reset, state = collect_trajectories(
+    model=model,
+    envs=envs,
+    reset_mask=reset_mask,
+    state=state,
+    rng=rngs,
+    config=agent_config,
+)

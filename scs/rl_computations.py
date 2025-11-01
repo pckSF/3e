@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from functools import partial
+from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
+
+if TYPE_CHECKING:
+    from scs.data import TrajectoryData
 
 
 @partial(jax.jit, static_argnums=(2,))
@@ -34,58 +38,81 @@ def masked_standardize(
     return ((x - mean) / std) * mask
 
 
+def _get_expected_return(
+    previous_return: jax.Array,
+    trajectory_step: TrajectoryData,
+    gamma: float,
+) -> tuple[jax.Array, jax.Array]:
+    """Computes one step of the discounted return; has to be run in reverse!"""
+    reward, terminal = trajectory_step.rewards, trajectory_step.terminals
+    current_return = reward + gamma * previous_return * (1.0 - terminal)
+    return current_return, current_return
+
+
 @partial(jax.jit, static_argnums=(1,))
-def get_expected_return(
-    rewards: jax.Array,
+def calculate_expected_return(
+    trajectory: TrajectoryData,
     gamma: float,
 ) -> jax.Array:
-    """Computes the discounted returns from a sequence of rewards.
+    """Computes the discounted returns for a trajectory.
 
-    This function calculates the cumulative discounted rewards for each timestep.
-
-    Note:
-        This implementation may face numerical instability with a large number
-        of steps. For improved stability, consider using `jax.lax.scan`.
+    Terminal states reset the discounted sum to account for episode endings and
+    the environment restarting within a trajectory.
 
     Args:
-        rewards: An array of rewards.
+        trajectory: A `TrajectoryData` object containing rewards and terminal
+            flags.
         gamma: The discount factor for future rewards.
 
     Returns:
-        An array of discounted returns.
+        An array of discounted returns for each step in the trajectory.
     """
-    discounts = (gamma ** jnp.arange(rewards.shape[0])).reshape(
-        (rewards.shape[0],) + (1,) * (rewards.ndim - 1)
-    )  # Match dimension of discount to rewards which can be (n,) or (n, m)
-    discounted_rewards = rewards * discounts
-    returns = jnp.cumsum(discounted_rewards[::-1], axis=0)[::-1] / discounts
-    return returns
+    _, reversed_expected_returns = jax.lax.scan(
+        partial(_get_expected_return, gamma=gamma),
+        jnp.zeros_like(trajectory.rewards[-1]),
+        trajectory,
+        reverse=True,
+    )
+    return reversed_expected_returns[::-1]
+
+
+def _get_gae_value(
+    previous_gae: jax.Array,
+    residual_terminal: tuple[jax.Array, jax.Array],
+    gamma: float,
+    lmbda: float,
+) -> tuple[jax.Array, jax.Array]:
+    """Computes one step of the GAE; has to be run in reverse!"""
+    td_residual, terminal = residual_terminal
+    current_gae = td_residual + gamma * lmbda * previous_gae * (1.0 - terminal)
+    return current_gae, current_gae
 
 
 @partial(jax.jit, static_argnums=(1, 2))
 def gae_from_td_residuals(
     td_residuals: jax.Array,
+    terminals: jax.Array,
     gamma: float,
     lmbda: float,
 ) -> jax.Array:
     """Computes Generalized Advantage Estimation (GAE) from TD residuals.
 
-    GAE is used to reduce the variance of advantage estimates, which can help
-    stabilize and accelerate policy gradient methods.
-
-    Note:
-        This implementation may face numerical instability with a large number
-        of steps. For improved stability, consider using `jax.lax.scan`.
+    Terminal states reset the discounted sum to account for episode endings and
+    the environment restarting within a trajectory.
 
     Args:
         td_residuals: The temporal difference errors for each timestep.
+        terminals: A boolean array indicating the end of an episode.
         gamma: The discount factor for future rewards.
         lmbda: The lambda parameter for GAE, balancing bias and variance.
 
     Returns:
-        The calculated Generalized Advantage Estimates.
+        The calculated Generalized Advantage Estimates for each timestep.
     """
-    weighted_discounts = (gamma * lmbda) ** jnp.arange(td_residuals.shape[0])
-    discounted_td_residuals = td_residuals * weighted_discounts
-    gae = jnp.cumsum(discounted_td_residuals[::-1])[::-1] / weighted_discounts
-    return gae
+    _, reversed_gae = jax.lax.scan(
+        partial(_get_gae_value, gamma=gamma, lmbda=lmbda),
+        jnp.zeros_like(td_residuals[-1]),
+        (td_residuals, terminals),
+        reverse=True,
+    )
+    return reversed_gae[::-1]
