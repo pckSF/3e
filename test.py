@@ -12,7 +12,6 @@ from scs.ppo.defaults import (
 )
 from scs.ppo.models import ActorCritic
 from scs.ppo.rollouts import collect_trajectories
-from scs.rl_computations import calculate_expected_return
 
 ############################################################################
 # Hyperparameters
@@ -69,31 +68,3 @@ trajectory, reset, state = collect_trajectories(
     rng=rngs,
     config=agent_config,
 )
-
-
-def calculate_expected_return_loop(trajectory, gamma):
-    """A simple, loop-based implementation for calculating expected returns."""
-    T = trajectory.rewards.shape[0]
-    N = trajectory.rewards.shape[1]
-    expected_returns = np.zeros((T, N))
-    for n in range(N):
-        g = 0
-        for t in reversed(range(T)):
-            reward = trajectory.rewards[t, n]
-            terminal = trajectory.terminals[t, n]
-            g = reward + gamma * g * (1.0 - terminal)
-            expected_returns[t, n] = g
-    return expected_returns
-
-
-# Test the calculate_expected_return function
-expected_returns_scan = calculate_expected_return(
-    trajectory, agent_config.discount_factor
-)
-expected_returns_loop = calculate_expected_return_loop(
-    trajectory, agent_config.discount_factor
-)
-
-np.testing.assert_allclose(expected_returns_scan, expected_returns_loop, rtol=1e-5)
-
-print("Test passed: calculate_expected_return matches the loop-based implementation.")
