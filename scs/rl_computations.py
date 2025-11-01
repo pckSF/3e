@@ -67,13 +67,13 @@ def calculate_expected_return(
     Returns:
         An array of discounted returns for each step in the trajectory.
     """
-    _, reversed_expected_returns = jax.lax.scan(
+    _, expected_returns = jax.lax.scan(
         partial(_get_expected_return, gamma=gamma),
         jnp.zeros_like(trajectory.rewards[-1]),
         trajectory,
         reverse=True,
     )
-    return reversed_expected_returns[::-1]
+    return expected_returns
 
 
 def _get_gae_value(
@@ -109,10 +109,10 @@ def gae_from_td_residuals(
     Returns:
         The calculated Generalized Advantage Estimates for each timestep.
     """
-    _, reversed_gae = jax.lax.scan(
+    _, gae = jax.lax.scan(
         partial(_get_gae_value, gamma=gamma, lmbda=lmbda),
         jnp.zeros_like(td_residuals[-1]),
         (td_residuals, terminals),
         reverse=True,
     )
-    return reversed_gae[::-1]
+    return gae
