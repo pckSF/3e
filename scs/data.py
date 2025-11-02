@@ -20,10 +20,14 @@ class TrajectoryData:
     - rewards:          [T, N]
     - next_states:      [T, N, ...]
     - terminals:        [T, N]
+    - values:           [T, N]
+    - gae:              [T, N]
 
     Static metadata:
     - n_steps:         int
     - agents:          [N]
+    - gamma:           float
+    - lam:             float
     """
 
     states: jax.Array
@@ -31,8 +35,12 @@ class TrajectoryData:
     rewards: jax.Array
     next_states: jax.Array
     terminals: jax.Array
+    values: jax.Array
+    gae: jax.Array
     n_steps: int = struct.field(pytree_node=False)
     agents: jax.Array = struct.field(pytree_node=False)
+    gamma: float = struct.field(pytree_node=False)
+    lam: float = struct.field(pytree_node=False)
 
     @classmethod
     def load(cls, path: str) -> TrajectoryData:
@@ -49,8 +57,12 @@ class TrajectoryData:
             "rewards": self.rewards,
             "next_states": self.next_states,
             "terminals": self.terminals,
+            "values": self.values,
+            "gae": self.gae,
             "n_steps": self.n_steps,
             "agents": self.agents,
+            "gamma": self.gamma,
+            "lam": self.lam,
         }
         with open(path, "wb") as f:
             pickle.dump(data_dict, f)
@@ -63,8 +75,12 @@ class TrajectoryData:
             rewards=self.rewards[batch_indices],
             next_states=self.next_states[batch_indices],
             terminals=self.terminals[batch_indices],
+            values=self.values[batch_indices],
+            gae=self.gae[batch_indices],
             n_steps=batch_indices.shape[0],
             agents=self.agents,
+            gamma=self.gamma,
+            lam=self.lam,
         )  # type: ignore[call-arg]
 
     def stack_agent_trajectories(self) -> TrajectoryData:
@@ -72,7 +88,7 @@ class TrajectoryData:
 
         Returns:
             A TrajectoryData object with shape [T * N, ...] for states, actions,
-            rewards, next_states, and terminals.
+            rewards, next_states, terminals, values, and gae.
         """
         steps, agents = self.n_steps, self.agents.shape[0]
         return TrajectoryData(
@@ -83,6 +99,10 @@ class TrajectoryData:
                 (steps * agents, *self.next_states.shape[2:])
             ),
             terminals=self.terminals.reshape((steps * agents,)),
+            values=self.values.reshape((steps * agents,)),
+            gae=self.gae.reshape((steps * agents,)),
             n_steps=steps * agents,
             agents=jnp.array(1),
+            gamma=self.gamma,
+            lam=self.lam,
         )  # type: ignore[call-arg]

@@ -116,3 +116,22 @@ def gae_from_td_residuals(
         reverse=True,
     )
     return gae
+
+
+@partial(
+    jax.jit,
+    static_argnums=(
+        4,
+        5,
+    ),
+)
+def calculate_gae(
+    rewards: jax.Array,
+    values: jax.Array,
+    next_values: jax.Array,
+    terminals: jax.Array,
+    gamma: float,
+    lmbda: float,
+) -> jax.Array:
+    td_error = rewards + gamma * next_values * (1.0 - terminals) - values
+    return gae_from_td_residuals(td_error, terminals, gamma, lmbda)
