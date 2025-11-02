@@ -6,9 +6,12 @@ from typing import TYPE_CHECKING
 from flax import struct
 import jax.numpy as jnp
 
+from scs.rl_computations import calculate_gae
+
 if TYPE_CHECKING:
     import jax
 
+    from scs.ppo.defaults import PPOConfig
     from scs.ppo.models import ActorCritic
 
 
@@ -139,11 +142,64 @@ class TrajectoryDataPPO(TrajectoryData):
         with open(path, "wb") as f:
             pickle.dump(data_dict, f)
 
+    @classmethod
+    def create_from_trajectory(
+        cls,
+        trajectory: TrajectoryData,
+        model: ActorCritic,
+        config: PPOConfig,
+    ) -> TrajectoryDataPPO:
+        values = model(trajectory.states)[2]
+        next_values = model(trajectory.next_states)[2]
+        gae = calculate_gae(
+            rewards=trajectory.rewards,
+            values=values,
+            next_values=next_values,
+            terminals=trajectory.terminals,
+            gamma=config.discount_factor,
+            lmbda=config.gae_lambda,
+        )
+        return cls(
+            states=trajectory.states,
+            actions=trajectory.actions,
+            rewards=trajectory.rewards,
+            next_states=trajectory.next_states,
+            terminals=trajectory.terminals,
+            n_steps=trajectory.n_steps,
+            agents=trajectory.agents,
+            values=values,
+            gae=gae,
+            gamma=config.discount_factor,
+            lam=config.gae_lambda,
+        )
+
     def update_with_model(
         self,
         model: ActorCritic,
     ) -> TrajectoryDataPPO:
-        pass
+        values = model(self.states)[2]
+        next_values = model(self.next_states)[2]
+        gae = calculate_gae(
+            rewards=self.rewards,
+            values=values,
+            next_values=next_values,
+            terminals=self.terminals,
+            gamma=self.gamma,
+            lmbda=self.lam,
+        )
+        return TrajectoryDataPPO(
+            states=self.states,
+            actions=self.actions,
+            rewards=self.rewards,
+            next_states=self.next_states,
+            terminals=self.terminals,
+            n_steps=self.n_steps,
+            agents=self.agents,
+            values=values,
+            gae=gae,
+            gamma=self.gamma,
+            lam=self.lam,
+        )
 
     def get_batch_data(self, batch_indices: jax.Array) -> TrajectoryDataPPO:
         """Returns a batch of data based on the provided indices."""

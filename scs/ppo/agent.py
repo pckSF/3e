@@ -20,18 +20,18 @@ def actor_action(
     states: jax.Array,
     rng: nnx.Rngs,
     config: PPOConfig,
-) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]:
+) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
     """Samples an action from the actor's policy.
 
     This function computes the action distribution from the actor model, samples
     an action, and exploration noise.
     """
-    a_means, a_log_stds, values = model(states)
+    a_means, a_log_stds, _values = model(states)
     noise = jax.random.normal(rng.noise(), shape=a_means.shape) * config.action_noise
     actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
         rng.action_select(), shape=a_means.shape
     )
-    return actions, noise, a_means, a_log_stds, values
+    return actions, noise, a_means, a_log_stds
 
 
 def loss_fn(

@@ -8,9 +8,10 @@ import jax.numpy as jnp
 import numpy as np
 
 from scs import utils
-from scs.data import TrajectoryDataPPO
+from scs.data import (
+    TrajectoryData,
+)
 from scs.ppo.agent import actor_action
-from scs.rl_computations import calculate_gae
 
 if TYPE_CHECKING:
     from flax import nnx
@@ -27,7 +28,7 @@ def collect_trajectories(
     state: np.ndarray,
     rng: nnx.Rngs,
     config: PPOConfig,
-) -> tuple[TrajectoryDataPPO, np.ndarray, np.ndarray]:
+) -> tuple[TrajectoryData, np.ndarray, np.ndarray]:
     """Collects trajectories by interacting with parallel environments.
 
     This function runs the agent's policy in a vectorized environment for a
@@ -64,7 +65,6 @@ def collect_trajectories(
     actions = np.zeros((max_steps, n_envs, 3), dtype=np.uint32)
     next_states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     terminals = np.zeros((max_steps, n_envs), dtype=np.bool_)
-    values = np.zeros((max_steps, n_envs), dtype=np.float32)
 
     if reset_mask.any():
         continue_state: np.ndarray = envs.reset(options={"reset_mask": reset_mask})[0]
@@ -73,7 +73,7 @@ def collect_trajectories(
         state = continue_state
 
     for ts in range(max_steps):
-        action, a_noise, _a_mean, _a_log_std, value = actor_action(
+        action, a_noise, _a_mean, _a_log_std = actor_action(
             model,
             jnp.asarray(state, dtype=jnp.float32),
             rng,
@@ -88,7 +88,6 @@ def collect_trajectories(
         actions[ts] = action + a_noise
         rewards[ts] = reward
         terminals[ts] = terminal
-        values[ts] = np.asarray(value, dtype=np.float32)
 
         reset_mask = np.logical_or(terminal, truncated)
         if reset_mask.any():
@@ -96,18 +95,8 @@ def collect_trajectories(
         else:
             state = next_state
 
-    next_values = model(jnp.asarray(next_states))[2]
-    gae = calculate_gae(
-        rewards=jnp.asarray(rewards, dtype=jnp.float32),
-        values=jnp.asarray(values, dtype=jnp.float32),
-        next_values=next_values,
-        terminals=jnp.asarray(terminals, dtype=jnp.float32),
-        gamma=config.discount_factor,
-        lmbda=config.gae_lambda,
-    )
-
     return (
-        TrajectoryDataPPO(
+        TrajectoryData(
             states=jnp.asarray(states, dtype=jnp.float32),
             actions=jnp.asarray(actions, dtype=jnp.uint32),
             rewards=jnp.asarray(rewards, dtype=jnp.float32),
@@ -115,10 +104,6 @@ def collect_trajectories(
             terminals=jnp.asarray(terminals, dtype=jnp.uint32),
             n_steps=max_steps,
             agents=jnp.arange(n_envs),
-            values=jnp.asarray(values, dtype=jnp.float32),
-            gae=gae,
-            gamma=config.discount_factor,
-            lam=config.gae_lambda,
         ),
         reset_mask,
         state,
@@ -153,7 +138,7 @@ def evaluation_trajectory(
     state: np.ndarray = envs.reset()[0]
     terminated = np.zeros((n_envs,), dtype=bool)
     for _ts in range(10000):
-        action, _a_noise, _a_mean, _a_log_std, _value = actor_action(
+        action, _a_noise, _a_mean, _a_log_std = actor_action(
             model,
             jnp.asarray(state, dtype=jnp.float32),
             rng,
