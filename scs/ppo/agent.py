@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from jax.scipy.stats import norm
 
 if TYPE_CHECKING:
-    from scs.data import TrajectoryDataPPO
+    from scs.data import TrajectoryData
     from scs.ppo.defaults import PPOConfig
     from scs.ppo.models import ActorCritic
 
@@ -37,7 +37,7 @@ def actor_action(
 
 def loss_fn(
     model: ActorCritic,
-    batch: TrajectoryDataPPO,
+    batch: TrajectoryData,
     config: PPOConfig,
 ) -> jax.Array:
     """
@@ -50,10 +50,11 @@ def loss_fn(
     returns = batch.gae[:, 0] + batch.values[:, 0]
     value_loss = jnp.mean((returns - values) ** 2).mean()
 
+    entropy = jnp.sum(a_log_stds + 0.5 * (jnp.log(2 * jnp.pi) + 1), axis=-1).mean()
+
     log_action_density = norm.logpdf(
         batch.actions, loc=a_means, scale=jnp.exp(a_log_stds)
     )
-    entropy = jnp.sum(a_log_stds + 0.5 * (jnp.log(2 * jnp.pi) + 1), axis=-1).mean()
 
     return (
         config.value_loss_coefficient * value_loss

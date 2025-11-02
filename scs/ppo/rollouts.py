@@ -5,6 +5,7 @@ from typing import (
 )
 
 import jax.numpy as jnp
+from jax.scipy.stats import norm
 import numpy as np
 
 from scs import utils
@@ -62,8 +63,7 @@ def collect_trajectories(
     states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     rewards = np.zeros((max_steps, n_envs), dtype=np.float32)
     actions = np.zeros((max_steps, n_envs, 3), dtype=np.uint32)
-    means = np.zeros((max_steps, n_envs, 3), dtype=np.float32)
-    log_stds = np.zeros((max_steps, n_envs, 3), dtype=np.float32)
+    actions_log_densities = np.zeros((max_steps, n_envs), dtype=np.float32)
     next_states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     terminals = np.zeros((max_steps, n_envs), dtype=np.bool_)
 
@@ -80,15 +80,19 @@ def collect_trajectories(
             rng,
             config,
         )
+        action_log_density = norm.logpdf(
+            action,
+            loc=a_mean,
+            scale=jnp.exp(a_log_std),
+        )
         next_state, reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
             np.tanh(np.asarray(action + a_noise))
         )
 
         states[ts] = state
         next_states[ts] = next_state
-        actions[ts] = action + a_noise
-        means[ts] = np.asarray(a_mean)
-        log_stds[ts] = np.asarray(a_log_std)
+        actions[ts] = np.asarray(action + a_noise)
+        actions_log_densities[ts] = np.asarray(action_log_density)
         rewards[ts] = reward
         terminals[ts] = terminal
 
@@ -102,8 +106,7 @@ def collect_trajectories(
         TrajectoryData(
             states=jnp.asarray(states, dtype=jnp.float32),
             actions=jnp.asarray(actions, dtype=jnp.float32),
-            means=jnp.asarray(means, dtype=jnp.float32),
-            log_stds=jnp.asarray(log_stds, dtype=jnp.float32),
+            log_action_densities=jnp.asarray(actions_log_densities, dtype=jnp.float32),
             rewards=jnp.asarray(rewards, dtype=jnp.float32),
             next_states=jnp.asarray(next_states, dtype=jnp.float32),
             terminals=jnp.asarray(terminals, dtype=jnp.uint32),

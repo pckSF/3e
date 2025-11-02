@@ -86,3 +86,9 @@ class ActorCritic(nnx.Module):
             self.actor_log_std(a),
             self.critic(c),
         )
+
+    @nnx.jit
+    def get_values(self, states: jax.Array) -> jax.Array:
+        """Computes value estimates for the given states."""
+        _a_means, _a_log_stds, values = self(states)
+        return values

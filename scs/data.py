@@ -4,7 +4,6 @@ import pickle
 from typing import TYPE_CHECKING
 
 from flax import (
-    nnx,
     struct,
 )
 import jax.numpy as jnp
@@ -23,28 +22,28 @@ class TrajectoryData:
     """JAX-friendly PyTree data container.
 
     Fields that are scanned over axis 0:
-    - states:           [T, N, ...]
-    - actions:          [T, N, ...]
-    - means:            [T, N, ...]
-    - log_stds:         [T, N, ...]
-    - rewards:          [T, N]
-    - next_states:      [T, N, ...]
-    - terminals:        [T, N]
+    - states:               [T, N, ...]
+    - actions:              [T, N, ...]
+    - action_log_densities: [T, N, ...]
+    - rewards:              [T, N]
+    - next_states:          [T, N, ...]
+    - terminals:            [T, N]
 
     Static metadata:
-    - n_steps:         int
-    - agents:          [N]
+    - n_steps:              int
+    - agents:               [N]
+    - samples:              bool
     """
 
     states: jax.Array
     actions: jax.Array
-    means: jax.Array
-    log_stds: jax.Array
+    action_log_densities: jax.Array
     rewards: jax.Array
     next_states: jax.Array
     terminals: jax.Array
     n_steps: int = struct.field(pytree_node=False)
     agents: jax.Array = struct.field(pytree_node=False)
+    samples: bool = struct.field(pytree_node=False, default=False)
 
     @classmethod
     def load(cls, path: str) -> TrajectoryData:
@@ -58,13 +57,13 @@ class TrajectoryData:
         data_dict = {
             "states": self.states,
             "actions": self.actions,
-            "means": self.means,
-            "log_stds": self.log_stds,
+            "action_log_densities": self.action_log_densities,
             "rewards": self.rewards,
             "next_states": self.next_states,
             "terminals": self.terminals,
             "n_steps": self.n_steps,
             "agents": self.agents,
+            "samples": self.samples,
         }
         with open(path, "wb") as f:
             pickle.dump(data_dict, f)
@@ -74,13 +73,13 @@ class TrajectoryData:
         return TrajectoryData(
             states=self.states[batch_indices],
             actions=self.actions[batch_indices],
-            means=self.means[batch_indices],
-            log_stds=self.log_stds[batch_indices],
+            action_log_densities=self.action_log_densities[batch_indices],
             rewards=self.rewards[batch_indices],
             next_states=self.next_states[batch_indices],
             terminals=self.terminals[batch_indices],
             n_steps=batch_indices.shape[0],
             agents=self.agents,
+            samples=True,
         )  # type: ignore[call-arg]
 
     def stack_agent_trajectories(self) -> TrajectoryData:
@@ -88,14 +87,15 @@ class TrajectoryData:
 
         Returns:
             A TrajectoryData object with shape [T * N, ...] for states, actions,
-            means, log_stds, rewards, next_states, and terminals.
+            action_log_densities, rewards, next_states, and terminals.
         """
         steps, agents = self.n_steps, self.agents.shape[0]
         return TrajectoryData(
             states=self.states.reshape((steps * agents, *self.states.shape[2:])),
             actions=self.actions.reshape((steps * agents, *self.actions.shape[2:])),
-            means=self.means.reshape((steps * agents, *self.means.shape[2:])),
-            log_stds=self.log_stds.reshape((steps * agents, *self.log_stds.shape[2:])),
+            action_log_densities=self.action_log_densities.reshape(
+                (steps * agents, *self.action_log_densities.shape[2:])
+            ),
             rewards=self.rewards.reshape((steps * agents,)),
             next_states=self.next_states.reshape(
                 (steps * agents, *self.next_states.shape[2:])
@@ -103,20 +103,15 @@ class TrajectoryData:
             terminals=self.terminals.reshape((steps * agents,)),
             n_steps=steps * agents,
             agents=jnp.array(1),
+            samples=self.samples,
         )  # type: ignore[call-arg]
 
 
-class TrajectoryDataPPO(TrajectoryData):
-    """JAX-friendly PyTree data container that contains additional data for PPO.
+@struct.dataclass
+class ValueAndGAE:
+    """JAX-friendly PyTree data container that value predictions and the GAE.
 
     Fields that are scanned over axis 0:
-    - states:           [T, N, ...]
-    - actions:          [T, N, ...]
-    - means:            [T, N, ...]
-    - log_stds:         [T, N, ...]
-    - rewards:          [T, N]
-    - next_states:      [T, N, ...]
-    - terminals:        [T, N]
     - values:           [T, N]
     - gae:              [T, N]
 
@@ -125,52 +120,52 @@ class TrajectoryDataPPO(TrajectoryData):
     - agents:          [N]
     - gamma:           float
     - lam:             float
+    - samples:         bool
     """
 
+    action_log_densities: jax.Array
     values: jax.Array
     gae: jax.Array
+    n_steps: int = struct.field(pytree_node=False)
+    agents: jax.Array = struct.field(pytree_node=False)
     gamma: float = struct.field(pytree_node=False)
     lam: float = struct.field(pytree_node=False)
+    samples: bool = struct.field(pytree_node=False, default=False)
 
     @classmethod
-    def load(cls, path: str) -> TrajectoryDataPPO:
+    def load(cls, path: str) -> ValueAndGAE:
         """Loads TrajectoryData from a pickle file."""
         with open(path, "rb") as f:
             data = pickle.load(f)
         return cls(**data)
 
     def save(self, path: str) -> None:
-        """Saves TrajectoryData to a pickle file."""
+        """Saves ValueAndGAE to a pickle file."""
         data_dict = {
-            "states": self.states,
-            "actions": self.actions,
-            "means": self.means,
-            "log_stds": self.log_stds,
-            "rewards": self.rewards,
-            "next_states": self.next_states,
-            "terminals": self.terminals,
-            "n_steps": self.n_steps,
-            "agents": self.agents,
             "values": self.values,
             "gae": self.gae,
+            "n_steps": self.n_steps,
+            "agents": self.agents,
             "gamma": self.gamma,
             "lam": self.lam,
+            "samples": self.samples,
         }
         with open(path, "wb") as f:
             pickle.dump(data_dict, f)
 
     @classmethod
-    @nnx.jit
     def create_from_trajectory(
         cls,
         trajectory: TrajectoryData,
         model: ActorCritic,
         config: PPOConfig,
-    ) -> TrajectoryDataPPO:
-        """Creates a TrajectoryDataPPO object from a standard trajectory.
+    ) -> ValueAndGAE:
+        """Creates a ValueAndGAE object from a standard trajectory.
 
-        This method computes the value estimates and GAE advantages required
-        for PPO and adds them to the base trajectory data.
+        This method computes value estimates and GAE advantages based on the
+        passed trajectory data.
+
+        Must be called on not-sampled Trajectories only!
 
         Args:
             trajectory: The base trajectory data.
@@ -180,8 +175,8 @@ class TrajectoryDataPPO(TrajectoryData):
         Returns:
             A new TrajectoryDataPPO object with PPO-specific data.
         """
-        values = model(trajectory.states)[2]
-        next_values = model(trajectory.next_states)[2]
+        values = model.get_values(trajectory.states)
+        next_values = model.get_values(trajectory.next_states)
         gae = calculate_gae(
             rewards=trajectory.rewards,
             values=values,
@@ -191,100 +186,39 @@ class TrajectoryDataPPO(TrajectoryData):
             lmbda=config.gae_lambda,
         )
         return cls(
-            states=trajectory.states,
-            actions=trajectory.actions,
-            means=trajectory.means,
-            log_stds=trajectory.log_stds,
-            rewards=trajectory.rewards,
-            next_states=trajectory.next_states,
-            terminals=trajectory.terminals,
-            n_steps=trajectory.n_steps,
-            agents=trajectory.agents,
             values=values,
             gae=gae,
+            n_steps=trajectory.n_steps,
+            agents=trajectory.agents,
             gamma=config.discount_factor,
             lam=config.gae_lambda,
         )
 
-    @nnx.jit
-    def update_with_model(
-        self,
-        model: ActorCritic,
-    ) -> TrajectoryDataPPO:
-        """Re-computes values and GAE with an updated model.
-
-        Args:
-            model: The updated actor-critic model.
-
-        Returns:
-            A new TrajectoryDataPPO object with updated values and GAE.
-        """
-        values = model(self.states)[2]
-        next_values = model(self.next_states)[2]
-        gae = calculate_gae(
-            rewards=self.rewards,
-            values=values,
-            next_values=next_values,
-            terminals=self.terminals,
-            gamma=self.gamma,
-            lmbda=self.lam,
-        )
-        return TrajectoryDataPPO(
-            states=self.states,
-            actions=self.actions,
-            means=self.means,
-            log_stds=self.log_stds,
-            rewards=self.rewards,
-            next_states=self.next_states,
-            terminals=self.terminals,
-            n_steps=self.n_steps,
-            agents=self.agents,
-            values=values,
-            gae=gae,
-            gamma=self.gamma,
-            lam=self.lam,
-        )
-
-    def get_batch_data(self, batch_indices: jax.Array) -> TrajectoryDataPPO:
+    def get_batch_data(self, batch_indices: jax.Array) -> ValueAndGAE:
         """Returns a batch of data based on the provided indices."""
-        return TrajectoryDataPPO(
-            states=self.states[batch_indices],
-            actions=self.actions[batch_indices],
-            means=self.means[batch_indices],
-            log_stds=self.log_stds[batch_indices],
-            rewards=self.rewards[batch_indices],
-            next_states=self.next_states[batch_indices],
-            terminals=self.terminals[batch_indices],
-            n_steps=batch_indices.shape[0],
-            agents=self.agents,
+        return ValueAndGAE(
             values=self.values[batch_indices],
             gae=self.gae[batch_indices],
+            n_steps=self.n_steps,
+            agents=self.agents,
             gamma=self.gamma,
             lam=self.lam,
+            samples=True,
         )  # type: ignore[call-arg]
 
-    def stack_agent_trajectories(self) -> TrajectoryDataPPO:
+    def stack_agent_trajectories(self) -> ValueAndGAE:
         """Stacks the agent dimension into the batch dimension.
 
         Returns:
-            A TrajectoryData object with shape [T * N, ...] for states, actions,
-            means, log_stds, rewards, next_states, terminals, values, and gae.
+            A ValueAndGAE object with shape [T * N, ...] for values and gae.
         """
         steps, agents = self.n_steps, self.agents.shape[0]
-        return TrajectoryDataPPO(
-            states=self.states.reshape((steps * agents, *self.states.shape[2:])),
-            actions=self.actions.reshape((steps * agents, *self.actions.shape[2:])),
-            means=self.means.reshape((steps * agents, *self.means.shape[2:])),
-            log_stds=self.log_stds.reshape((steps * agents, *self.log_stds.shape[2:])),
-            rewards=self.rewards.reshape((steps * agents,)),
-            next_states=self.next_states.reshape(
-                (steps * agents, *self.next_states.shape[2:])
-            ),
-            terminals=self.terminals.reshape((steps * agents,)),
-            n_steps=steps * agents,
-            agents=jnp.array(1),
+        return ValueAndGAE(
             values=self.values.reshape((steps * agents,)),
             gae=self.gae.reshape((steps * agents,)),
+            n_steps=steps * agents,
+            agents=jnp.array(1),
             gamma=self.gamma,
             lam=self.lam,
+            samples=self.samples,
         )  # type: ignore[call-arg]
