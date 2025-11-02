@@ -149,6 +149,19 @@ class TrajectoryDataPPO(TrajectoryData):
         model: ActorCritic,
         config: PPOConfig,
     ) -> TrajectoryDataPPO:
+        """Creates a TrajectoryDataPPO object from a standard trajectory.
+
+        This method computes the value estimates and GAE advantages required
+        for PPO and adds them to the base trajectory data.
+
+        Args:
+            trajectory: The base trajectory data.
+            model: The actor-critic model to compute values.
+            config: The PPO configuration containing gamma and lambda.
+
+        Returns:
+            A new TrajectoryDataPPO object with PPO-specific data.
+        """
         values = model(trajectory.states)[2]
         next_values = model(trajectory.next_states)[2]
         gae = calculate_gae(
@@ -177,6 +190,14 @@ class TrajectoryDataPPO(TrajectoryData):
         self,
         model: ActorCritic,
     ) -> TrajectoryDataPPO:
+        """Re-computes values and GAE with an updated model.
+
+        Args:
+            model: The updated actor-critic model.
+
+        Returns:
+            A new TrajectoryDataPPO object with updated values and GAE.
+        """
         values = model(self.states)[2]
         next_values = model(self.next_states)[2]
         gae = calculate_gae(

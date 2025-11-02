@@ -52,8 +52,7 @@ def collect_trajectories(
     Returns:
         A tuple containing:
             - A `TrajectoryDataPPO` object holding the collected states, actions,
-                rewards, next_states, and terminal signals as well as GAE
-                advantages and value estimates.
+                rewards, next_states, and terminal signals.
             - The final `reset_mask`, indicating which environments terminated
             during this collection phase, to be used in the next call.
     """

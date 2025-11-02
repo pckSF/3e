@@ -118,13 +118,7 @@ def gae_from_td_residuals(
     return gae
 
 
-@partial(
-    jax.jit,
-    static_argnums=(
-        4,
-        5,
-    ),
-)
+@partial(jax.jit, static_argnums=(4, 5))
 def calculate_gae(
     rewards: jax.Array,
     values: jax.Array,
@@ -133,5 +127,6 @@ def calculate_gae(
     gamma: float,
     lmbda: float,
 ) -> jax.Array:
+    """Computes the Generalized Advantage Estimation."""
     td_error = rewards + gamma * next_values * (1.0 - terminals) - values
     return gae_from_td_residuals(td_error, terminals, gamma, lmbda)
