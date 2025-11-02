@@ -60,6 +60,11 @@ def get_config(
     Returns:
         A `FrozenConfigDict` containing the default PPO hyperparameters.
     """
+    if n_actors * n_actor_steps < batch_size:
+        raise ValueError(
+            f"Batch size {batch_size} cannot be larger than total "
+            f"collected steps {n_actors * n_actor_steps}."
+        )
     config = make_config(
         {
             "learning_rate": learning_rate,

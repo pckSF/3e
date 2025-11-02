@@ -4,6 +4,7 @@ import pickle
 from typing import TYPE_CHECKING
 
 from flax import struct
+import jax.numpy as jnp
 
 if TYPE_CHECKING:
     import jax
@@ -64,4 +65,24 @@ class TrajectoryData:
             terminals=self.terminals[batch_indices],
             n_steps=batch_indices.shape[0],
             agents=self.agents,
+        )  # type: ignore[call-arg]
+
+    def stack_agent_trajectories(self) -> TrajectoryData:
+        """Stacks the agent dimension into the batch dimension.
+
+        Returns:
+            A TrajectoryData object with shape [T * N, ...] for states, actions,
+            rewards, next_states, and terminals.
+        """
+        steps, agents = self.n_steps, self.agents.shape[0]
+        return TrajectoryData(
+            states=self.states.reshape((steps * agents, *self.states.shape[2:])),
+            actions=self.actions.reshape((steps * agents, *self.actions.shape[2:])),
+            rewards=self.rewards.reshape((steps * agents,)),
+            next_states=self.next_states.reshape(
+                (steps * agents, *self.next_states.shape[2:])
+            ),
+            terminals=self.terminals.reshape((steps * agents,)),
+            n_steps=steps * agents,
+            agents=jnp.array(1),
         )  # type: ignore[call-arg]
