@@ -26,6 +26,8 @@ class PPOConfig(Protocol):
     batch_size: int
     num_epochs: int
     action_noise: float
+    value_loss_coefficient: float
+    exploration_coefficient: float
 
 
 def get_config(
@@ -39,6 +41,8 @@ def get_config(
     batch_size: int = 64,
     num_epochs: int = 5,
     action_noise: float = 0.2,
+    value_loss_coefficient: float = 0.5,
+    exploration_coefficient: float = 0.01,
 ) -> PPOConfig:
     """Generates the default configuration for the PPO agent.
 
@@ -56,6 +60,8 @@ def get_config(
         batch_size: The number of samples per batch for training.
         num_epochs: The number of epochs for training on each batch of data.
         action_noise: Noise added to the actions for exploration.
+        value_loss_coefficient: Coefficient for the value loss term.
+        exploration_coefficient: Coefficient for the exploration bonus.
 
     Returns:
         A `FrozenConfigDict` containing the default PPO hyperparameters.
@@ -77,6 +83,8 @@ def get_config(
             "batch_size": batch_size,
             "num_epochs": num_epochs,
             "action_noise": action_noise,
+            "value_loss_coefficient": value_loss_coefficient,
+            "exploration_coefficient": exploration_coefficient,
         }
     )
     return cast("PPOConfig", config)

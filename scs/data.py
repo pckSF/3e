@@ -3,7 +3,10 @@ from __future__ import annotations
 import pickle
 from typing import TYPE_CHECKING
 
-from flax import struct
+from flax import (
+    nnx,
+    struct,
+)
 import jax.numpy as jnp
 
 from scs.rl_computations import calculate_gae
@@ -143,6 +146,7 @@ class TrajectoryDataPPO(TrajectoryData):
             pickle.dump(data_dict, f)
 
     @classmethod
+    @nnx.jit
     def create_from_trajectory(
         cls,
         trajectory: TrajectoryData,
@@ -186,6 +190,7 @@ class TrajectoryDataPPO(TrajectoryData):
             lam=config.gae_lambda,
         )
 
+    @nnx.jit
     def update_with_model(
         self,
         model: ActorCritic,

@@ -7,9 +7,10 @@ from typing import (
 from flax import nnx
 import jax
 import jax.numpy as jnp
+from jax.scipy.stats import norm
 
 if TYPE_CHECKING:
-    from scs.data import TrajectoryData
+    from scs.data import TrajectoryDataPPO
     from scs.ppo.defaults import PPOConfig
     from scs.ppo.models import ActorCritic
 
@@ -36,9 +37,25 @@ def actor_action(
 
 def loss_fn(
     model: ActorCritic,
-    batch: TrajectoryData,
+    batch: TrajectoryDataPPO,
     config: PPOConfig,
 ) -> jax.Array:
+    """
+    Entropy is based on the differential entropy of a normal distribution:
+        H(X)    = log(sigma * sqrt(2 * pi * e))
+                = log(sigma) + 0.5 * (log(2 * pi) + 1)
+    """
     a_means, a_log_stds, values = model(batch.states)
     a_means, a_log_stds, values = a_means[:, 0], a_log_stds[:, 0], values[:, 0]
-    return jnp.array(0.0)  # Placeholder for actual loss computation
+    returns = batch.gae[:, 0] + batch.values[:, 0]
+    value_loss = jnp.mean((returns - values) ** 2).mean()
+
+    log_action_density = norm.logpdf(
+        batch.actions, loc=a_means, scale=jnp.exp(a_log_stds)
+    )
+    entropy = jnp.sum(a_log_stds + 0.5 * (jnp.log(2 * jnp.pi) + 1), axis=-1).mean()
+
+    return (
+        config.value_loss_coefficient * value_loss
+        + config.entropy_coefficient * entropy
+    )
