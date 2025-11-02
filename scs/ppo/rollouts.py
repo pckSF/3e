@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from scs import utils
-from scs.data import TrajectoryData
+from scs.data import TrajectoryDataPPO
 from scs.ppo.agent import actor_action
 from scs.rl_computations import calculate_gae
 
@@ -27,7 +27,7 @@ def collect_trajectories(
     state: np.ndarray,
     rng: nnx.Rngs,
     config: PPOConfig,
-) -> tuple[TrajectoryData, np.ndarray, np.ndarray]:
+) -> tuple[TrajectoryDataPPO, np.ndarray, np.ndarray]:
     """Collects trajectories by interacting with parallel environments.
 
     This function runs the agent's policy in a vectorized environment for a
@@ -50,8 +50,9 @@ def collect_trajectories(
 
     Returns:
         A tuple containing:
-            - A `TrajectoryData` object holding the collected states, actions,
-            rewards, next_states, and terminal signals.
+            - A `TrajectoryDataPPO` object holding the collected states, actions,
+                rewards, next_states, and terminal signals as well as GAE
+                advantages and value estimates.
             - The final `reset_mask`, indicating which environments terminated
             during this collection phase, to be used in the next call.
     """
@@ -106,16 +107,18 @@ def collect_trajectories(
     )
 
     return (
-        TrajectoryData(
+        TrajectoryDataPPO(
             states=jnp.asarray(states, dtype=jnp.float32),
             actions=jnp.asarray(actions, dtype=jnp.uint32),
             rewards=jnp.asarray(rewards, dtype=jnp.float32),
             next_states=jnp.asarray(next_states, dtype=jnp.float32),
             terminals=jnp.asarray(terminals, dtype=jnp.uint32),
-            values=jnp.asarray(values, dtype=jnp.float32),
-            gae=gae,
             n_steps=max_steps,
             agents=jnp.arange(n_envs),
+            values=jnp.asarray(values, dtype=jnp.float32),
+            gae=gae,
+            gamma=config.discount_factor,
+            lam=config.gae_lambda,
         ),
         reset_mask,
         state,

@@ -41,3 +41,4 @@ def loss_fn(
 ) -> jax.Array:
     a_means, a_log_stds, values = model(batch.states)
     a_means, a_log_stds, values = a_means[:, 0], a_log_stds[:, 0], values[:, 0]
+    return jnp.array(0.0)  # Placeholder for actual loss computation
