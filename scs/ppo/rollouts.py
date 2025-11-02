@@ -62,6 +62,8 @@ def collect_trajectories(
     states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     rewards = np.zeros((max_steps, n_envs), dtype=np.float32)
     actions = np.zeros((max_steps, n_envs, 3), dtype=np.uint32)
+    means = np.zeros((max_steps, n_envs, 3), dtype=np.float32)
+    log_stds = np.zeros((max_steps, n_envs, 3), dtype=np.float32)
     next_states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     terminals = np.zeros((max_steps, n_envs), dtype=np.bool_)
 
@@ -72,7 +74,7 @@ def collect_trajectories(
         state = continue_state
 
     for ts in range(max_steps):
-        action, a_noise, _a_mean, _a_log_std = actor_action(
+        action, a_noise, a_mean, a_log_std = actor_action(
             model,
             jnp.asarray(state, dtype=jnp.float32),
             rng,
@@ -85,6 +87,8 @@ def collect_trajectories(
         states[ts] = state
         next_states[ts] = next_state
         actions[ts] = action + a_noise
+        means[ts] = np.asarray(a_mean)
+        log_stds[ts] = np.asarray(a_log_std)
         rewards[ts] = reward
         terminals[ts] = terminal
 
@@ -97,7 +101,9 @@ def collect_trajectories(
     return (
         TrajectoryData(
             states=jnp.asarray(states, dtype=jnp.float32),
-            actions=jnp.asarray(actions, dtype=jnp.uint32),
+            actions=jnp.asarray(actions, dtype=jnp.float32),
+            means=jnp.asarray(means, dtype=jnp.float32),
+            log_stds=jnp.asarray(log_stds, dtype=jnp.float32),
             rewards=jnp.asarray(rewards, dtype=jnp.float32),
             next_states=jnp.asarray(next_states, dtype=jnp.float32),
             terminals=jnp.asarray(terminals, dtype=jnp.uint32),

@@ -25,6 +25,8 @@ class TrajectoryData:
     Fields that are scanned over axis 0:
     - states:           [T, N, ...]
     - actions:          [T, N, ...]
+    - means:            [T, N, ...]
+    - log_stds:         [T, N, ...]
     - rewards:          [T, N]
     - next_states:      [T, N, ...]
     - terminals:        [T, N]
@@ -36,6 +38,8 @@ class TrajectoryData:
 
     states: jax.Array
     actions: jax.Array
+    means: jax.Array
+    log_stds: jax.Array
     rewards: jax.Array
     next_states: jax.Array
     terminals: jax.Array
@@ -54,6 +58,8 @@ class TrajectoryData:
         data_dict = {
             "states": self.states,
             "actions": self.actions,
+            "means": self.means,
+            "log_stds": self.log_stds,
             "rewards": self.rewards,
             "next_states": self.next_states,
             "terminals": self.terminals,
@@ -68,6 +74,8 @@ class TrajectoryData:
         return TrajectoryData(
             states=self.states[batch_indices],
             actions=self.actions[batch_indices],
+            means=self.means[batch_indices],
+            log_stds=self.log_stds[batch_indices],
             rewards=self.rewards[batch_indices],
             next_states=self.next_states[batch_indices],
             terminals=self.terminals[batch_indices],
@@ -80,12 +88,14 @@ class TrajectoryData:
 
         Returns:
             A TrajectoryData object with shape [T * N, ...] for states, actions,
-            rewards, next_states, and terminals.
+            means, log_stds, rewards, next_states, and terminals.
         """
         steps, agents = self.n_steps, self.agents.shape[0]
         return TrajectoryData(
             states=self.states.reshape((steps * agents, *self.states.shape[2:])),
             actions=self.actions.reshape((steps * agents, *self.actions.shape[2:])),
+            means=self.means.reshape((steps * agents, *self.means.shape[2:])),
+            log_stds=self.log_stds.reshape((steps * agents, *self.log_stds.shape[2:])),
             rewards=self.rewards.reshape((steps * agents,)),
             next_states=self.next_states.reshape(
                 (steps * agents, *self.next_states.shape[2:])
@@ -102,6 +112,8 @@ class TrajectoryDataPPO(TrajectoryData):
     Fields that are scanned over axis 0:
     - states:           [T, N, ...]
     - actions:          [T, N, ...]
+    - means:            [T, N, ...]
+    - log_stds:         [T, N, ...]
     - rewards:          [T, N]
     - next_states:      [T, N, ...]
     - terminals:        [T, N]
@@ -132,6 +144,8 @@ class TrajectoryDataPPO(TrajectoryData):
         data_dict = {
             "states": self.states,
             "actions": self.actions,
+            "means": self.means,
+            "log_stds": self.log_stds,
             "rewards": self.rewards,
             "next_states": self.next_states,
             "terminals": self.terminals,
@@ -179,6 +193,8 @@ class TrajectoryDataPPO(TrajectoryData):
         return cls(
             states=trajectory.states,
             actions=trajectory.actions,
+            means=trajectory.means,
+            log_stds=trajectory.log_stds,
             rewards=trajectory.rewards,
             next_states=trajectory.next_states,
             terminals=trajectory.terminals,
@@ -216,6 +232,8 @@ class TrajectoryDataPPO(TrajectoryData):
         return TrajectoryDataPPO(
             states=self.states,
             actions=self.actions,
+            means=self.means,
+            log_stds=self.log_stds,
             rewards=self.rewards,
             next_states=self.next_states,
             terminals=self.terminals,
@@ -232,6 +250,8 @@ class TrajectoryDataPPO(TrajectoryData):
         return TrajectoryDataPPO(
             states=self.states[batch_indices],
             actions=self.actions[batch_indices],
+            means=self.means[batch_indices],
+            log_stds=self.log_stds[batch_indices],
             rewards=self.rewards[batch_indices],
             next_states=self.next_states[batch_indices],
             terminals=self.terminals[batch_indices],
@@ -248,12 +268,14 @@ class TrajectoryDataPPO(TrajectoryData):
 
         Returns:
             A TrajectoryData object with shape [T * N, ...] for states, actions,
-            rewards, next_states, terminals, values, and gae.
+            means, log_stds, rewards, next_states, terminals, values, and gae.
         """
         steps, agents = self.n_steps, self.agents.shape[0]
         return TrajectoryDataPPO(
             states=self.states.reshape((steps * agents, *self.states.shape[2:])),
             actions=self.actions.reshape((steps * agents, *self.actions.shape[2:])),
+            means=self.means.reshape((steps * agents, *self.means.shape[2:])),
+            log_stds=self.log_stds.reshape((steps * agents, *self.log_stds.shape[2:])),
             rewards=self.rewards.reshape((steps * agents,)),
             next_states=self.next_states.reshape(
                 (steps * agents, *self.next_states.shape[2:])
