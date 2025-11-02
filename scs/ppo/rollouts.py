@@ -4,6 +4,7 @@ from typing import (
     TYPE_CHECKING,
 )
 
+import jax
 import jax.numpy as jnp
 from jax.scipy.stats import norm
 import numpy as np
@@ -63,7 +64,7 @@ def collect_trajectories(
     states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     rewards = np.zeros((max_steps, n_envs), dtype=np.float32)
     actions = np.zeros((max_steps, n_envs, 3), dtype=np.uint32)
-    actions_log_densities = np.zeros((max_steps, n_envs), dtype=np.float32)
+    action_log_densities = np.zeros((max_steps, n_envs, 3), dtype=np.float32)
     next_states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     terminals = np.zeros((max_steps, n_envs), dtype=np.bool_)
 
@@ -80,7 +81,7 @@ def collect_trajectories(
             rng,
             config,
         )
-        action_log_density = norm.logpdf(
+        action_log_density = jax.jit(norm.logpdf)(
             action,
             loc=a_mean,
             scale=jnp.exp(a_log_std),
@@ -92,7 +93,7 @@ def collect_trajectories(
         states[ts] = state
         next_states[ts] = next_state
         actions[ts] = np.asarray(action + a_noise)
-        actions_log_densities[ts] = np.asarray(action_log_density)
+        action_log_densities[ts] = np.asarray(action_log_density)
         rewards[ts] = reward
         terminals[ts] = terminal
 
@@ -106,7 +107,7 @@ def collect_trajectories(
         TrajectoryData(
             states=jnp.asarray(states, dtype=jnp.float32),
             actions=jnp.asarray(actions, dtype=jnp.float32),
-            log_action_densities=jnp.asarray(actions_log_densities, dtype=jnp.float32),
+            action_log_densities=jnp.asarray(action_log_densities, dtype=jnp.float32),
             rewards=jnp.asarray(rewards, dtype=jnp.float32),
             next_states=jnp.asarray(next_states, dtype=jnp.float32),
             terminals=jnp.asarray(terminals, dtype=jnp.uint32),

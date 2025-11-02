@@ -175,6 +175,11 @@ class ValueAndGAE:
         Returns:
             A new TrajectoryDataPPO object with PPO-specific data.
         """
+        if trajectory.samples:
+            raise ValueError(
+                "Cannot create ValueAndGAE from sampled TrajectoryData; "
+                "GAE computation requires timestep order to be preserved."
+            )
         values = model.get_values(trajectory.states)
         next_values = model.get_values(trajectory.next_states)
         gae = calculate_gae(

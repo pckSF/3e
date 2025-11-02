@@ -7,7 +7,6 @@ from typing import (
 from flax import nnx
 import jax
 import jax.numpy as jnp
-from jax.scipy.stats import norm
 
 if TYPE_CHECKING:
     from scs.data import TrajectoryData
@@ -52,9 +51,9 @@ def loss_fn(
 
     entropy = jnp.sum(a_log_stds + 0.5 * (jnp.log(2 * jnp.pi) + 1), axis=-1).mean()
 
-    log_action_density = norm.logpdf(
-        batch.actions, loc=a_means, scale=jnp.exp(a_log_stds)
-    )
+    # log_action_density = norm.logpdf(
+    #     batch.actions, loc=a_means, scale=jnp.exp(a_log_stds)
+    # )
 
     return (
         config.value_loss_coefficient * value_loss
