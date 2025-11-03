@@ -44,10 +44,24 @@ def loss_fn(
     batch_computations: ValueAndGAE,
     config: PPOConfig,
 ) -> jax.Array:
-    """
-    Entropy is based on the differential entropy of a normal distribution:
+    """Computes the PPO loss for a batch of trajectory data.
+
+    This function calculates the combined loss for the actor-critic model, which
+    includes the policy loss (PPO's clipped objective), the value function loss,
+    and an entropy bonus to encourage exploration.
+
+    The entropy is based on the differential entropy of a normal distribution:
         H(X)    = log(sigma * sqrt(2 * pi * e))
                 = log(sigma) + 0.5 * (log(2 * pi) + 1)
+
+    Args:
+        model: The actor-critic model being trained.
+        batch: A batch of trajectory data from rollouts.
+        batch_computations: Pre-computed values like GAE and returns.
+        config: The PPO configuration object.
+
+    Returns:
+        The total PPO loss for the batch.
     """
     a_means, a_log_stds, values = model(batch.states)
     values = jnp.squeeze(values)
