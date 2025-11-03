@@ -10,7 +10,6 @@ from scs.data import ValueAndGAE
 from scs.nn_modules import NNTrainingState
 from scs.ppo.agent import loss_fn
 from scs.ppo.defaults import (
-    PPOConfig,
     get_config,
 )
 from scs.ppo.models import ActorCritic
@@ -19,23 +18,20 @@ from scs.ppo.rollouts import collect_trajectories
 ############################################################################
 # Hyperparameters
 ############################################################################
-hyperparameters: dict[str, int | float] = {
-    "learning_rate": 2.5e-4,
-    "discount_factor": 0.99,
-    "clip_parameter": 0.1,
-    "entropy_coefficient": 0.01,
-    "gae_lambda": 0.95,
-    "n_actors": 4,
-    "n_actor_steps": 128,
-    "batch_size": 64,
-    "num_epochs": 5,
-    "action_noise": 0.2,
-}
+agent_config = get_config(
+    learning_rate=2.5e-4,
+    discount_factor=0.99,
+    clip_parameter=0.1,
+    entropy_coefficient=0.01,
+    gae_lambda=0.95,
+    n_actors=4,
+    n_actor_steps=128,
+    batch_size=64,
+    num_epochs=5,
+    action_noise=0.2,
+)
 seed: int = 0
 ############################################################################
-
-# Create agent configuration
-agent_config: PPOConfig = get_config(**hyperparameters)
 
 # Setup RNG
 rngs = nnx.Rngs(
