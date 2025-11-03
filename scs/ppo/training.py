@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -32,6 +33,21 @@ def update_on_trajectory(
     config: PPOConfig,
     key: jax.Array,
 ) -> tuple[NNTrainingState, jax.Array]:
+    """Performs multiple updates on one collected trajectory.
+
+    Samples `config.num_epochs` batches from the provided trajectory and
+    performs training updates on the agent's model for each batch.
+
+    Args:
+        train_state: The neural network model's training state container.
+        trajectory: A trajectory of experience collected from the environment.
+        config: The agent's configuration.
+        key: A JAX random key for generating batch indices.
+
+    Returns:
+        A tuple containing the updated training state and the loss values for
+        each training step.
+    """
     trajectories = trajectory.stack_agent_trajectories()
     batch_indices = get_train_batch_indices(
         samples=config.num_epochs,
@@ -60,12 +76,33 @@ def train_agent(
     max_training_loops: int,
     rngs: nnx.Rngs,
 ) -> tuple[NNTrainingState, gym.vector.SyncVectorEnv, jax.Array, jax.Array]:
+    """Trains a PPO agent over a specified number of training loops.
+
+    For each loop a trajectory of `config.n_actor_steps` is collected from the
+    vectorized environment and used for training.
+
+    Evaluation is done on a copy of the environment.
+    TODO: Is this even necessary?
+
+    Args:
+        train_state: The initial state of the neural network model.
+        envs: The vectorized gym environment for training.
+        config: The agent's configuration.
+        data_logger: A logger for saving training data and model checkpoints.
+        max_training_loops: The total number of training loops to execute.
+        rngs: A container for JAX random number generators.
+
+    Returns:
+        A tuple containing the final training state, the environment, and arrays
+        of the loss and evaluation histories.
+    """
     data_logger.store_metadata("config", dict(config))
     states = envs.reset()[0]
     reset_mask = np.zeros((config.n_actors,), dtype=bool)
     model = nnx.merge(train_state.model_def, train_state.model_state)
     loss_history: list[float] = []
     eval_history: list[float] = []
+    eval_envs: gym.vector.SyncVectorEnv = deepcopy(envs)
     progress_bar: tqdm = tqdm(range(max_training_loops), desc="Training Loops")
     for training_loop in progress_bar:
         trajectories, reset_mask, states = collect_trajectories(
@@ -92,7 +129,7 @@ def train_agent(
         model = nnx.merge(train_state.model_def, train_state.model_state)
         eval_rewards = evaluation_trajectory(
             model=model,
-            envs=envs,
+            envs=eval_envs,
             config=config,
             rng=rngs,
         )

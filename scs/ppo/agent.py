@@ -61,7 +61,7 @@ def loss_fn(
         model: The actor-critic model being trained.
         batch: A batch of trajectory data from rollouts.
         batch_computations: Pre-computed values like GAE and returns.
-        config: The PPO configuration object.
+        config: The agent's configuration.
 
     Returns:
         The total PPO loss for the batch.
@@ -110,7 +110,7 @@ def train_step(
         train_state: The current training state, acting as the carry in a scan.
         batch_indices: The indices for the data batch to be processed.
         trajectory: The full trajectory data for the epoch.
-        config: The agents configuration.
+        config: The agent's configuration.
 
     Returns:
         A tuple containing the updated training state and the loss for the batch.
