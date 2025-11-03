@@ -19,7 +19,7 @@ from scs.ppo.rollouts import collect_trajectories
 ############################################################################
 # Hyperparameters
 ############################################################################
-hyperparameters = {
+hyperparameters: dict[str, int | float] = {
     "learning_rate": 2.5e-4,
     "discount_factor": 0.99,
     "clip_parameter": 0.1,
@@ -62,7 +62,7 @@ train_state = NNTrainingState.create(
 )
 
 reset_mask = np.ones((agent_config.n_actors,), dtype=bool)
-state = envs.reset()[0]
+state: np.ndarray = envs.reset()[0]
 trajectory, reset, state = collect_trajectories(
     model=model,
     envs=envs,

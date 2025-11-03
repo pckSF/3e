@@ -96,8 +96,8 @@ def train_agent(
         A tuple containing the final training state, the environment, and arrays
         of the loss and evaluation histories.
     """
-    data_logger.store_metadata("config", dict(config))
-    states = envs.reset()[0]
+    data_logger.store_metadata("config", config.to_dict())
+    states: np.ndarray = envs.reset()[0]
     reset_mask = np.zeros((config.n_actors,), dtype=bool)
     model = nnx.merge(train_state.model_def, train_state.model_state)
     loss_history: list[float] = []

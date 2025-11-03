@@ -80,7 +80,7 @@ class TrajectoryData:
             n_steps=batch_indices.shape[0],
             agents=self.agents,
             samples=True,
-        )  # type: ignore[call-arg]
+        )
 
     def stack_agent_trajectories(self) -> TrajectoryData:
         """Stacks the agent dimension into the batch dimension.
@@ -104,7 +104,7 @@ class TrajectoryData:
             n_steps=steps * agents,
             agents=jnp.array(1),
             samples=self.samples,
-        )  # type: ignore[call-arg]
+        )
 
 
 @struct.dataclass
@@ -209,7 +209,7 @@ class ValueAndGAE:
             gamma=self.gamma,
             lam=self.lam,
             samples=True,
-        )  # type: ignore[call-arg]
+        )
 
     def stack_agent_trajectories(self) -> ValueAndGAE:
         """Stacks the agent dimension into the batch dimension.
@@ -226,4 +226,4 @@ class ValueAndGAE:
             gamma=self.gamma,
             lam=self.lam,
             samples=self.samples,
-        )  # type: ignore[call-arg]
+        )

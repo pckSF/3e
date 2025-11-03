@@ -30,6 +30,8 @@ class PPOConfig(Protocol):
     exploration_coefficient: float
     save_checkpoints: int
 
+    def to_dict(self) -> dict: ...
+
 
 def get_config(
     learning_rate: float = 2.5e-4,

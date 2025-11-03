@@ -48,6 +48,7 @@ class DataLogger:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         resolved_log_dir = Path(log_dir).resolve() / timestamp
         resolved_log_dir.mkdir(parents=True, exist_ok=True)
+        self.log_dir: Path = resolved_log_dir
 
         self.logger: logging.Logger = _create_file_logger(resolved_log_dir, timestamp)
         self.logger.info(f"DataLogger initialized at {resolved_log_dir}")
