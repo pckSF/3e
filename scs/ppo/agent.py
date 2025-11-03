@@ -59,7 +59,7 @@ def loss_fn(
     action_log_densities = norm.logpdf(
         batch.actions, loc=a_means, scale=jnp.exp(a_log_stds)
     )
-    density_ratios = jnp.exp(  # Joint density ratio over the "set of actions"
+    density_ratios = jnp.exp(  # Density ratio for the action vectors
         jnp.sum(action_log_densities - batch.action_log_densities, axis=-1)
     )
     policy_gradient_loss = density_ratios * batch_computations.gae
