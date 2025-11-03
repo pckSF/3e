@@ -28,6 +28,7 @@ class PPOConfig(Protocol):
     action_noise: float
     value_loss_coefficient: float
     exploration_coefficient: float
+    save_checkpoints: int
 
 
 def get_config(
@@ -36,13 +37,14 @@ def get_config(
     clip_parameter: float = 0.1,
     entropy_coefficient: float = 0.01,
     gae_lambda: float = 0.95,
-    n_actors: int = 4,
+    n_actors: int = 10,
     n_actor_steps: int = 128,
-    batch_size: int = 64,
-    num_epochs: int = 5,
+    batch_size: int = 256,
+    num_epochs: int = 3,
     action_noise: float = 0.2,
     value_loss_coefficient: float = 0.5,
     exploration_coefficient: float = 0.01,
+    save_checkpoints: int = 500,
 ) -> PPOConfig:
     """Generates the default configuration for the PPO agent.
 
@@ -62,6 +64,7 @@ def get_config(
         action_noise: Noise added to the actions for exploration.
         value_loss_coefficient: Coefficient for the value loss term.
         exploration_coefficient: Coefficient for the exploration bonus.
+        save_checkpoints: Frequency of saving model checkpoints.
 
     Returns:
         A `FrozenConfigDict` containing the default PPO hyperparameters.
@@ -85,6 +88,7 @@ def get_config(
             "action_noise": action_noise,
             "value_loss_coefficient": value_loss_coefficient,
             "exploration_coefficient": exploration_coefficient,
+            "save_checkpoints": save_checkpoints,
         }
     )
     return cast("PPOConfig", config)

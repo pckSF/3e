@@ -1,1 +1,107 @@
 from __future__ import annotations
+
+from functools import partial
+from typing import TYPE_CHECKING
+
+from flax import nnx
+import jax
+import jax.numpy as jnp
+import numpy as np
+from tqdm import tqdm
+
+from scs.ppo.agent import train_step
+from scs.ppo.rollouts import (
+    collect_trajectories,
+    evaluation_trajectory,
+)
+from scs.utils import get_train_batch_indices
+
+if TYPE_CHECKING:
+    import gymnasium as gym
+
+    from scs.data import TrajectoryData
+    from scs.data_logging import DataLogger
+    from scs.nn_modules import NNTrainingState
+    from scs.ppo.defaults import PPOConfig
+
+
+@partial(jax.jit, static_argnums=(2,))
+def update_on_trajectory(
+    train_state: NNTrainingState,
+    trajectory: TrajectoryData,
+    config: PPOConfig,
+    key: jax.Array,
+) -> tuple[NNTrainingState, jax.Array]:
+    trajectories = trajectory.stack_agent_trajectories()
+    batch_indices = get_train_batch_indices(
+        samples=config.num_epochs,
+        batch_size=config.batch_size,
+        max_index=trajectories.n_steps,
+        key=key,
+        replace_for_rows=False,
+    )
+    train_state, loss = jax.lax.scan(
+        partial(
+            train_step,
+            trajectory=trajectories,
+            config=config,
+        ),
+        train_state,
+        batch_indices,
+    )
+    return train_state, loss
+
+
+def train_agent(
+    train_state: NNTrainingState,
+    envs: gym.vector.SyncVectorEnv,
+    config: PPOConfig,
+    data_logger: DataLogger,
+    max_training_loops: int,
+    rngs: nnx.Rngs,
+) -> tuple[NNTrainingState, gym.vector.SyncVectorEnv, jax.Array, jax.Array]:
+    data_logger.store_metadata("config", dict(config))
+    states = envs.reset()[0]
+    reset_mask = np.zeros((config.n_actors,), dtype=bool)
+    model = nnx.merge(train_state.model_def, train_state.model_state)
+    loss_history: list[float] = []
+    eval_history: list[float] = []
+    progress_bar: tqdm = tqdm(range(max_training_loops), desc="Training Loops")
+    for training_loop in progress_bar:
+        trajectories, reset_mask, states = collect_trajectories(
+            model=model,
+            envs=envs,
+            reset_mask=reset_mask,
+            state=states,
+            rng=rngs,
+            config=config,
+        )
+        train_state, loss = update_on_trajectory(
+            train_state=train_state,
+            trajectory=trajectories,
+            config=config,
+            key=rngs.sample(),
+        )
+        if training_loop % config.save_checkpoints == 0:
+            data_logger.save_checkpoint(
+                filename="checkpoint",
+                data=train_state.model_state,
+            )
+        data_logger.save_csv_row("losses", loss)
+        loss_history.append(float(np.mean(loss)))
+        model = nnx.merge(train_state.model_def, train_state.model_state)
+        eval_rewards = evaluation_trajectory(
+            model=model,
+            envs=envs,
+            config=config,
+            rng=rngs,
+        )
+        data_logger.save_csv_row("eval_rewards", eval_rewards)
+        eval_history.append(float(np.mean(eval_rewards)))
+        progress_bar.set_postfix(
+            {
+                "loss": f"{loss_history[-1]:.4f}",
+                "eval reward": f"{eval_history[-1]:.2f}",
+            }
+        )
+    return train_state, envs, jnp.array(loss_history), jnp.array(eval_history)

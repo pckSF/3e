@@ -45,6 +45,8 @@ def get_train_batch_indices(
     """Generates random indices for training batches.
 
     These indices can be used to slice out a batch from trajectory data.
+    `replace_for_rows` determines whether sampling for each row is done with or
+    without replacement, as in are the same indices allowed within one batch.
     """
     indices = jnp.arange(max_index)
     if replace_for_rows:

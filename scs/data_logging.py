@@ -52,6 +52,10 @@ class DataLogger:
         self.logger: logging.Logger = _create_file_logger(resolved_log_dir, timestamp)
         self.logger.info(f"DataLogger initialized at {resolved_log_dir}")
 
+    def log_info(self, message: str) -> None:
+        """Logs an informational message."""
+        self.logger.info(message)
+
     def _flatten_array(self, array: jax.Array | np.ndarray) -> list[int | float]:
         """Flattens a JAX or NumPy array into a 1D list of numbers."""
         array = np.asarray(array)
@@ -67,16 +71,15 @@ class DataLogger:
         )
 
     def save_csv_row(
-        self, log_dir: Path, filename: str, row: jax.Array | np.ndarray | list[Any]
+        self, filename: str, row: jax.Array | np.ndarray | list[Any]
     ) -> None:
         """Appends a single row to a specified CSV file in the log directory.
 
         Args:
-            log_dir: The directory where log files are stored.
             filename: The name of the CSV file (without extension).
             row: A list or array of values to be written as a row in the CSV.
         """
-        filepath = (log_dir / filename).with_suffix(".csv")
+        filepath = (self.log_dir / filename).with_suffix(".csv")
         filepath.parent.mkdir(parents=True, exist_ok=True)
         if not isinstance(row, list):
             row = self._flatten_array(row)
@@ -86,18 +89,16 @@ class DataLogger:
 
     def store_metadata(
         self,
-        log_dir: Path,
         filename: str,
         data: dict[str, PrimitiveTypes | list[PrimitiveTypes]],
     ) -> None:
         """Saves a dictionary of metadata as a JSON file.
 
         Args:
-            log_dir: The directory where log files are stored.
             filename: The name of the JSON file (without extension).
             data: A dictionary containing metadata.
         """
-        filepath = (log_dir / filename).with_suffix(".json")
+        filepath = (self.log_dir / filename).with_suffix(".json")
         if filepath.exists():
             raise FileExistsError(f"Metadata file {filepath} already exists.")
         filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -106,14 +107,12 @@ class DataLogger:
 
     def save_checkpoint(
         self,
-        log_dir: Path,
         filename: str,
         data: nnx.State,
     ) -> None:
         """Saves an NNX State object as a checkpoint.
 
         Args:
-            log_dir: The directory where the checkpoint will be saved.
             filename: The name of the checkpoint directory.
             data: The NNX State object to be saved.
         """
@@ -124,12 +123,12 @@ class DataLogger:
             )
         checkpoint_numbers = (
             int(p.stem.split("_")[-1])
-            for p in log_dir.glob(f"{filename}_*")
+            for p in self.log_dir.glob(f"{filename}_*")
             if p.stem.split("_")[-1].isdigit()
         )
         count = max(checkpoint_numbers, default=0) + 1
         with ocp.StandardCheckpointer() as checkpointer:
             checkpointer.save(
-                log_dir / f"{filename}_{count:05d}",
+                self.log_dir / f"{filename}_{count:05d}",
                 data,
             )
