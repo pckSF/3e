@@ -63,7 +63,7 @@ def collect_trajectories(
 
     states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     rewards = np.zeros((max_steps, n_envs), dtype=np.float32)
-    actions = np.zeros((max_steps, n_envs, 3), dtype=np.uint32)
+    actions = np.zeros((max_steps, n_envs, 3), dtype=np.float32)
     action_log_densities = np.zeros((max_steps, n_envs, 3), dtype=np.float32)
     next_states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     terminals = np.zeros((max_steps, n_envs), dtype=np.bool_)
@@ -81,18 +81,19 @@ def collect_trajectories(
             rng,
             config,
         )
+        taken_action = action + a_noise
         action_log_density = jax.jit(norm.logpdf)(
-            action,
+            taken_action,
             loc=a_mean,
             scale=jnp.exp(a_log_std),
         )
         next_state, reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
-            np.tanh(np.asarray(action + a_noise))
+            np.tanh(np.asarray(taken_action))
         )
 
         states[ts] = state
         next_states[ts] = next_state
-        actions[ts] = np.asarray(action + a_noise)
+        actions[ts] = np.asarray(taken_action)
         action_log_densities[ts] = np.asarray(action_log_density)
         rewards[ts] = reward
         terminals[ts] = terminal
