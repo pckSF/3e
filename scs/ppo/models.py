@@ -78,6 +78,14 @@ class ActorCritic(nnx.Module):
         )
 
     def __call__(self, x: jax.Array) -> tuple[jax.Array, jax.Array, jax.Array]:
+        """Computes action distribution parameters and value estimates for states.
+
+        Returns:
+            A tuple containing:
+            - The action means.
+            - The action log standard deviations.
+            - The state value estimates.
+        """
         x = nnx.relu(self.layernorm_1(self.linear_1(x)))
         x = nnx.relu(self.layernorm_2(self.linear_2(x)))
         c = nnx.relu(self.critic_layernorm_1(self.critic_linear_1(x)))
