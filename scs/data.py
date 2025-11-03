@@ -123,7 +123,6 @@ class ValueAndGAE:
     - samples:         bool
     """
 
-    action_log_densities: jax.Array
     values: jax.Array
     gae: jax.Array
     n_steps: int = struct.field(pytree_node=False)
@@ -182,6 +181,7 @@ class ValueAndGAE:
             )
         values = model.get_values(trajectory.states)
         next_values = model.get_values(trajectory.next_states)
+        # TODO: Normalize Advantages?
         gae = calculate_gae(
             rewards=trajectory.rewards,
             values=values,

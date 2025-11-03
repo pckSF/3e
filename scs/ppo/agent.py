@@ -7,9 +7,13 @@ from typing import (
 from flax import nnx
 import jax
 import jax.numpy as jnp
+from jax.scipy.stats import norm
 
 if TYPE_CHECKING:
-    from scs.data import TrajectoryData
+    from scs.data import (
+        TrajectoryData,
+        ValueAndGAE,
+    )
     from scs.ppo.defaults import PPOConfig
     from scs.ppo.models import ActorCritic
 
@@ -37,6 +41,7 @@ def actor_action(
 def loss_fn(
     model: ActorCritic,
     batch: TrajectoryData,
+    batch_computations: ValueAndGAE,
     config: PPOConfig,
 ) -> jax.Array:
     """
@@ -45,17 +50,28 @@ def loss_fn(
                 = log(sigma) + 0.5 * (log(2 * pi) + 1)
     """
     a_means, a_log_stds, values = model(batch.states)
-    a_means, a_log_stds, values = a_means[:, 0], a_log_stds[:, 0], values[:, 0]
-    returns = batch.gae[:, 0] + batch.values[:, 0]
+    values = jnp.squeeze(values)
+    returns = batch_computations.gae + batch_computations.values
     value_loss = jnp.mean((returns - values) ** 2).mean()
 
     entropy = jnp.sum(a_log_stds + 0.5 * (jnp.log(2 * jnp.pi) + 1), axis=-1).mean()
 
-    # log_action_density = norm.logpdf(
-    #     batch.actions, loc=a_means, scale=jnp.exp(a_log_stds)
-    # )
-
+    action_log_densities = norm.logpdf(
+        batch.actions, loc=a_means, scale=jnp.exp(a_log_stds)
+    )
+    density_ratios = jnp.exp(  # Joint density ratio over the "set of actions"
+        jnp.sum(action_log_densities - batch.action_log_densities, axis=-1)
+    )
+    policy_gradient_loss = density_ratios * batch_computations.gae
+    clipped_pg_loss = (
+        jax.lax.clamp(
+            1.0 - config.clip_parameter, density_ratios, 1.0 + config.clip_parameter
+        )
+        * batch_computations.gae
+    )
+    ppo_loss = -jnp.mean(jnp.minimum(policy_gradient_loss, clipped_pg_loss), axis=0)
     return (
-        config.value_loss_coefficient * value_loss
+        ppo_loss
+        + config.value_loss_coefficient * value_loss
         + config.entropy_coefficient * entropy
     )

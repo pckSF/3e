@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flax import nnx
+import jax.numpy as jnp
 
 if TYPE_CHECKING:
     import jax
@@ -91,4 +92,4 @@ class ActorCritic(nnx.Module):
     def get_values(self, states: jax.Array) -> jax.Array:
         """Computes value estimates for the given states."""
         _a_means, _a_log_stds, values = self(states)
-        return values
+        return jnp.squeeze(values)

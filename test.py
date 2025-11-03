@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from flax import nnx
 import gymnasium as gym
+import jax
 import numpy as np
 import optax
 
+from scs.data import ValueAndGAE
 from scs.nn_modules import NNTrainingState
+from scs.ppo.agent import loss_fn
 from scs.ppo.defaults import (
     PPOConfig,
     get_config,
@@ -66,5 +69,31 @@ trajectory, reset, state = collect_trajectories(
     reset_mask=reset_mask,
     state=state,
     rng=rngs,
+    config=agent_config,
+)
+
+value_and_gae = ValueAndGAE.create_from_trajectory(
+    trajectory=trajectory,
+    model=model,
+    config=agent_config,
+)
+
+trajectory_flat = trajectory.stack_agent_trajectories()
+value_and_gae_flat = value_and_gae.stack_agent_trajectories()
+
+batch_indices = jax.random.choice(
+    rngs.sample(),
+    a=trajectory_flat.n_steps,
+    shape=(agent_config.batch_size,),
+    replace=False,
+)
+
+trajectory_batch = trajectory_flat.get_batch_data(batch_indices)
+value_and_gae_batch = value_and_gae_flat.get_batch_data(batch_indices)
+
+loss = loss_fn(
+    model=model,
+    batch=trajectory_batch,
+    batch_computations=value_and_gae_batch,
     config=agent_config,
 )

@@ -88,7 +88,7 @@ def _get_gae_value(
     return current_gae, current_gae
 
 
-@partial(jax.jit, static_argnums=(1, 2))
+@partial(jax.jit, static_argnums=(2, 3))
 def gae_from_td_residuals(
     td_residuals: jax.Array,
     terminals: jax.Array,
