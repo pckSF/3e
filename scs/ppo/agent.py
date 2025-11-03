@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import partial
 from typing import (
     TYPE_CHECKING,
 )
@@ -9,11 +10,13 @@ import jax
 import jax.numpy as jnp
 from jax.scipy.stats import norm
 
+from scs.data import ValueAndGAE
+
 if TYPE_CHECKING:
     from scs.data import (
         TrajectoryData,
-        ValueAndGAE,
     )
+    from scs.nn_modules import NNTrainingState
     from scs.ppo.defaults import PPOConfig
     from scs.ppo.models import ActorCritic
 
@@ -89,3 +92,37 @@ def loss_fn(
         + config.value_loss_coefficient * value_loss
         + config.entropy_coefficient * entropy
     )
+
+
+@partial(jax.jit, static_argnums=(3,))
+def train_step(
+    train_state: NNTrainingState,
+    batch_indices: jax.Array,
+    trajectory: TrajectoryData,
+    config: PPOConfig,
+) -> tuple[NNTrainingState, jax.Array]:
+    """Performs a single training step on a batch of data.
+
+    This function is designed to be used with `jax.lax.scan` to iterate over
+    a set of batch indices.
+
+    Args:
+        train_state: The current training state, acting as the carry in a scan.
+        batch_indices: The indices for the data batch to be processed.
+        trajectory: The full trajectory data for the epoch.
+        config: The agents configuration.
+
+    Returns:
+        A tuple containing the updated training state and the loss for the batch.
+    """
+    model = nnx.merge(train_state.model_def, train_state.model_state)
+    trajectory_computations = ValueAndGAE.create_from_trajectory(
+        trajectory=trajectory,
+        model=model,
+        config=config,
+    )
+    batch = trajectory.get_batch_data(batch_indices)
+    batch_computations = trajectory_computations.get_batch_data(batch_indices)
+    grad_fn = nnx.value_and_grad(loss_fn, argnums=0)
+    loss, grads = grad_fn(model, batch, batch_computations, config)
+    return train_state.apply_gradients(grads), loss
