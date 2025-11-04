@@ -29,6 +29,7 @@ class PPOConfig(Protocol):
     value_loss_coefficient: float
     exploration_coefficient: float
     save_checkpoints: int
+    normalize_advantages: bool
 
     def to_dict(self) -> dict: ...
 
@@ -47,6 +48,7 @@ def get_config(
     value_loss_coefficient: float = 0.5,
     exploration_coefficient: float = 0.01,
     save_checkpoints: int = 500,
+    normalize_advantages: bool = False,
 ) -> PPOConfig:
     """Generates the default configuration for the PPO agent.
 
@@ -67,6 +69,7 @@ def get_config(
         value_loss_coefficient: Coefficient for the value loss term.
         exploration_coefficient: Coefficient for the exploration bonus.
         save_checkpoints: Frequency of saving model checkpoints.
+        normalize_advantages: Whether to normalize advantages.
 
     Returns:
         A `FrozenConfigDict` containing the default PPO hyperparameters.
@@ -91,6 +94,7 @@ def get_config(
             "value_loss_coefficient": value_loss_coefficient,
             "exploration_coefficient": exploration_coefficient,
             "save_checkpoints": save_checkpoints,
+            "normalize_advantages": normalize_advantages,
         }
     )
     return cast("PPOConfig", config)

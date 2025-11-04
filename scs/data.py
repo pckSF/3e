@@ -3,9 +3,8 @@ from __future__ import annotations
 import pickle
 from typing import TYPE_CHECKING
 
-from flax import (
-    struct,
-)
+from flax import struct
+import jax.numpy as jnp
 
 from scs.rl_computations import calculate_gae
 
@@ -163,10 +162,10 @@ def compute_advantages(
 ) -> TrajectoryGAE:
     """Creates a TrajectoryGAE object from a standard trajectory.
 
-    This method computes value estimates and GAE advantages based on the
-    passed trajectory data.
 
-    Must be called on not-sampled Trajectories only!
+    Important: This function assumes trajectory.samples=False.
+    Using sampled/shuffled trajectories will produce incorrect results
+    as GAE requires temporal ordering.
 
     Args:
         trajectory: The base trajectory data.
@@ -174,13 +173,8 @@ def compute_advantages(
         config: The PPO configuration containing gamma and lambda.
 
     Returns:
-        A new TrajectoryDataPPO object with PPO-specific data.
+        A new TrajectoryGAE object with GAE and value data.
     """
-    if trajectory.samples:
-        raise ValueError(
-            "Cannot create ValueAndGAE from sampled TrajectoryData; "
-            "GAE computation requires timestep order to be preserved."
-        )
     values = model.get_values(trajectory.states)
     next_values = model.get_values(trajectory.next_states)
     # TODO: Normalize Advantages?
@@ -192,6 +186,10 @@ def compute_advantages(
         gamma=config.discount_factor,
         lmbda=config.gae_lambda,
     )
+
+    if config.normalize_advantages:
+        advantages = (advantages - jnp.mean(advantages)) / (jnp.std(advantages) + 1e-8)
+
     return TrajectoryGAE(
         values=values,
         advantages=advantages,
