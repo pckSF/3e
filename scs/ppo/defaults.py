@@ -19,6 +19,8 @@ class PPOConfig(Protocol):
     learning_rate: float
     learning_rate_end_value: float
     learning_rate_decay: float
+    optimizer: str
+    lr_schedule: str
     discount_factor: float
     clip_parameter: float
     entropy_coefficient: float
@@ -32,6 +34,7 @@ class PPOConfig(Protocol):
     exploration_coefficient: float
     save_checkpoints: int
     normalize_advantages: bool
+    max_training_loops: int
 
     def to_dict(self) -> dict: ...
 
@@ -40,6 +43,8 @@ def get_config(
     learning_rate: float = 2.5e-4,
     learning_rate_end_value: float = 0.0,
     learning_rate_decay: float = 0.99,
+    optimizer: str = "adam",
+    lr_schedule: str = "linear",
     discount_factor: float = 0.99,
     clip_parameter: float = 0.1,
     entropy_coefficient: float = 0.01,
@@ -53,6 +58,7 @@ def get_config(
     exploration_coefficient: float = 0.01,
     save_checkpoints: int = 500,
     normalize_advantages: bool = False,
+    max_training_loops: int = 10000,
 ) -> PPOConfig:
     """Generates the default configuration for the PPO agent.
 
@@ -63,6 +69,8 @@ def get_config(
         learning_rate: The learning rate for the Adam optimizer.
         learning_rate_end_value: The end value for the learning rate schedule.
         learning_rate_decay: The decay rate for the learning rate schedule.
+        optimizer: The optimizer to use for training.
+        lr_schedule: The learning rate schedule type.
         discount_factor: The discount factor for future rewards (gamma).
         clip_parameter: The clipping parameter for the PPO surrogate objective.
         entropy_coefficient: The coefficient for the entropy term in the loss.
@@ -76,6 +84,7 @@ def get_config(
         exploration_coefficient: Coefficient for the exploration bonus.
         save_checkpoints: Frequency of saving model checkpoints.
         normalize_advantages: Whether to normalize advantages.
+        max_training_loops: The maximum number of training loops to perform.
 
     Returns:
         A `FrozenConfigDict` containing the default PPO hyperparameters.
@@ -90,6 +99,8 @@ def get_config(
             "learning_rate": learning_rate,
             "learning_rate_end_value": learning_rate_end_value,
             "learning_rate_decay": learning_rate_decay,
+            "optimizer": optimizer,
+            "lr_schedule": lr_schedule,
             "discount_factor": discount_factor,
             "clip_parameter": clip_parameter,
             "entropy_coefficient": entropy_coefficient,
@@ -103,6 +114,7 @@ def get_config(
             "exploration_coefficient": exploration_coefficient,
             "save_checkpoints": save_checkpoints,
             "normalize_advantages": normalize_advantages,
+            "max_training_loops": max_training_loops,
         }
     )
     return cast("PPOConfig", config)

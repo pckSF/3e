@@ -19,6 +19,8 @@ agent_config = get_config(
     learning_rate=2.5e-4,
     learning_rate_end_value=0.0,
     learning_rate_decay=0.9995,
+    optimizer="adam",
+    lr_schedule="linear",
     discount_factor=0.99,
     clip_parameter=0.2,
     entropy_coefficient=0.01,
@@ -29,8 +31,8 @@ agent_config = get_config(
     num_epochs=10,
     action_noise=0.0,
     normalize_advantages=True,
+    max_training_loops=10000,
 )
-max_training_loops: int = 10000
 seed: int = 0
 ############################################################################
 # Setup logging
@@ -57,7 +59,7 @@ model = ActorCritic(rngs=rngs)
 lr_decay_schedule = optax.linear_schedule(
     init_value=agent_config.learning_rate,
     end_value=0.0,
-    transition_steps=agent_config.num_epochs * max_training_loops,
+    transition_steps=agent_config.num_epochs * agent_config.max_training_loops,
 )
 train_state = NNTrainingState.create(
     model_def=nnx.graphdef(model),
@@ -70,6 +72,6 @@ train_state, envs, losses, rewards = train_agent(
     envs=envs,
     config=agent_config,
     data_logger=logger,
-    max_training_loops=max_training_loops,
+    max_training_loops=agent_config.max_training_loops,
     rngs=rngs,
 )
