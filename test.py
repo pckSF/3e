@@ -2,18 +2,15 @@ from __future__ import annotations
 
 from flax import nnx
 import gymnasium as gym
-import jax
-import numpy as np
 import optax
 
-from scs.data import ValueAndGAE
+from scs.data_logging import DataLogger
 from scs.nn_modules import NNTrainingState
-from scs.ppo.agent import loss_fn
+from scs.ppo import train_agent
 from scs.ppo.defaults import (
     get_config,
 )
 from scs.ppo.models import ActorCritic
-from scs.ppo.rollouts import collect_trajectories
 
 ############################################################################
 # Hyperparameters
@@ -24,14 +21,16 @@ agent_config = get_config(
     clip_parameter=0.1,
     entropy_coefficient=0.01,
     gae_lambda=0.95,
-    n_actors=4,
+    n_actors=8,
     n_actor_steps=128,
-    batch_size=64,
+    batch_size=256,
     num_epochs=5,
     action_noise=0.2,
 )
 seed: int = 0
 ############################################################################
+# Setup logging
+logger = DataLogger(log_dir="logs/ppo_hopper")
 
 # Setup RNG
 rngs = nnx.Rngs(
@@ -57,39 +56,11 @@ train_state = NNTrainingState.create(
     optimizer=optax.adam(agent_config.learning_rate),
 )
 
-reset_mask = np.ones((agent_config.n_actors,), dtype=bool)
-state: np.ndarray = envs.reset()[0]
-trajectory, reset, state = collect_trajectories(
-    model=model,
+train_state, envs, losses, rewards = train_agent(
+    train_state=train_state,
     envs=envs,
-    reset_mask=reset_mask,
-    state=state,
-    rng=rngs,
     config=agent_config,
-)
-
-value_and_gae = ValueAndGAE.create_from_trajectory(
-    trajectory=trajectory,
-    model=model,
-    config=agent_config,
-)
-
-trajectory_flat = trajectory.stack_agent_trajectories()
-value_and_gae_flat = value_and_gae.stack_agent_trajectories()
-
-batch_indices = jax.random.choice(
-    rngs.sample(),
-    a=trajectory_flat.n_steps,
-    shape=(agent_config.batch_size,),
-    replace=False,
-)
-
-trajectory_batch = trajectory_flat.get_batch_data(batch_indices)
-value_and_gae_batch = value_and_gae_flat.get_batch_data(batch_indices)
-
-loss = loss_fn(
-    model=model,
-    batch=trajectory_batch,
-    batch_computations=value_and_gae_batch,
-    config=agent_config,
+    data_logger=logger,
+    max_training_loops=10000,
+    rngs=rngs,
 )

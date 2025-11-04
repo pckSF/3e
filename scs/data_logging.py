@@ -53,6 +53,8 @@ class DataLogger:
         self.logger: logging.Logger = _create_file_logger(resolved_log_dir, timestamp)
         self.logger.info(f"DataLogger initialized at {resolved_log_dir}")
 
+        self.checkpointer: ocp.Checkpointer = ocp.StandardCheckpointer()
+
     def log_info(self, message: str) -> None:
         """Logs an informational message."""
         self.logger.info(message)
@@ -128,8 +130,7 @@ class DataLogger:
             if p.stem.split("_")[-1].isdigit()
         )
         count = max(checkpoint_numbers, default=0) + 1
-        with ocp.StandardCheckpointer() as checkpointer:
-            checkpointer.save(
-                self.log_dir / f"{filename}_{count:05d}",
-                data,
-            )
+        self.checkpointer.save(
+            self.log_dir / f"{filename}_{count:05d}",
+            data,
+        )
