@@ -14,7 +14,7 @@ class ActorCritic(nnx.Module):
         self.linear_1: nnx.Linear = nnx.Linear(
             in_features=11,
             out_features=256,
-            kernel_init=nnx.initializers.glorot_uniform(),
+            kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
@@ -25,7 +25,7 @@ class ActorCritic(nnx.Module):
         self.linear_2 = nnx.Linear(
             in_features=256,
             out_features=256,
-            kernel_init=nnx.initializers.glorot_uniform(),
+            kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
@@ -36,7 +36,7 @@ class ActorCritic(nnx.Module):
         self.critic_linear_1: nnx.Linear = nnx.Linear(
             in_features=256,
             out_features=128,
-            kernel_init=nnx.initializers.glorot_uniform(),
+            kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
@@ -47,14 +47,14 @@ class ActorCritic(nnx.Module):
         self.critic: nnx.Linear = nnx.Linear(
             in_features=128,
             out_features=1,
-            kernel_init=nnx.initializers.glorot_uniform(),
+            kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
         self.actor_linear_1: nnx.Linear = nnx.Linear(
             in_features=256,
             out_features=128,
-            kernel_init=nnx.initializers.glorot_uniform(),
+            kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
@@ -65,14 +65,14 @@ class ActorCritic(nnx.Module):
         self.actor_mean: nnx.Linear = nnx.Linear(
             in_features=128,
             out_features=3,
-            kernel_init=nnx.initializers.glorot_uniform(),
+            kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
         self.actor_log_std: nnx.Linear = nnx.Linear(
             in_features=128,
             out_features=3,
-            kernel_init=nnx.initializers.glorot_uniform(),
+            kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )

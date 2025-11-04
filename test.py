@@ -17,15 +17,15 @@ from scs.ppo.models import ActorCritic
 ############################################################################
 agent_config = get_config(
     learning_rate=2.5e-4,
-    learning_rate_decay=0.99,
+    learning_rate_decay=0.9995,
     discount_factor=0.99,
-    clip_parameter=0.1,
+    clip_parameter=0.2,
     entropy_coefficient=0.01,
     gae_lambda=0.95,
     n_actors=8,
     n_actor_steps=128,
-    batch_size=256,
-    num_epochs=3,
+    batch_size=64,
+    num_epochs=10,
     action_noise=0.0,
     normalize_advantages=True,
 )
@@ -33,7 +33,7 @@ max_training_loops: int = 10000
 seed: int = 0
 ############################################################################
 # Setup logging
-logger = DataLogger(log_dir="logs/ppo_hopper")
+logger = DataLogger(log_dir="data/logs/ppo_hopper")
 
 # Setup RNG
 rngs = nnx.Rngs(
