@@ -26,6 +26,7 @@ agent_config = get_config(
     batch_size=256,
     num_epochs=5,
     action_noise=0.2,
+    normalize_advantages=True,
 )
 seed: int = 0
 ############################################################################

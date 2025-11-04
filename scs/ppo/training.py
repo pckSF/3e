@@ -12,6 +12,8 @@ from tqdm import tqdm
 
 from scs.data import (
     TrajectoryData,
+    compute_advantages,
+    stack_agent_advantages,
     stack_agent_trajectories,
 )
 from scs.ppo.agent import train_step
@@ -38,8 +40,9 @@ def update_on_trajectory(
 ) -> tuple[NNTrainingState, jax.Array]:
     """Performs multiple updates on one collected trajectory.
 
-    Samples `config.num_epochs` batches from the provided trajectory and
-    performs training updates on the agent's model for each batch.
+    Computes advantages and samples `config.num_epochs` batche indices for the
+    provided trajectory and performs training updates on the agent's model for
+    each batch.
 
     Args:
         train_state: The neural network model's training state container.
@@ -51,7 +54,13 @@ def update_on_trajectory(
         A tuple containing the updated training state and the loss values for
         each training step.
     """
+    trajectory_advantages = compute_advantages(
+        trajectory,
+        nnx.merge(train_state.model_def, train_state.model_state),
+        config,
+    )
     trajectories = stack_agent_trajectories(trajectory)
+    trajectory_advantages = stack_agent_advantages(trajectory_advantages)
     batch_indices = get_train_batch_indices(
         samples=config.num_epochs,
         batch_size=config.batch_size,
@@ -63,6 +72,7 @@ def update_on_trajectory(
         partial(
             train_step,
             trajectory=trajectories,
+            trajectory_advantages=trajectory_advantages,
             config=config,
         ),
         train_state,

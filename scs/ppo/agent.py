@@ -12,7 +12,6 @@ from jax.scipy.stats import norm
 from scs.data import (
     TrajectoryData,
     TrajectoryGAE,
-    compute_advantages,
     get_advantage_batch,
     get_trajectory_batch,
 )
@@ -100,6 +99,7 @@ def train_step(
     train_state: NNTrainingState,
     batch_indices: jax.Array,
     trajectory: TrajectoryData,
+    trajectory_advantages: TrajectoryGAE,
     config: PPOConfig,
 ) -> tuple[NNTrainingState, jax.Array]:
     """Performs a single training step on a batch of data.
@@ -111,19 +111,15 @@ def train_step(
         train_state: The current training state, acting as the carry in a scan.
         batch_indices: The indices for the data batch to be processed.
         trajectory: The full trajectory data for the epoch.
+        trajectory_advantages: The pre-computed advantages for the full trajectory.
         config: The agent's configuration.
 
     Returns:
         A tuple containing the updated training state and the loss for the batch.
     """
     model = nnx.merge(train_state.model_def, train_state.model_state)
-    trajectory_computations = compute_advantages(
-        trajectory=trajectory,
-        model=model,
-        config=config,
-    )
     batch = get_trajectory_batch(trajectory, batch_indices)
-    batch_computations = get_advantage_batch(trajectory_computations, batch_indices)
+    batch_computations = get_advantage_batch(trajectory_advantages, batch_indices)
     grad_fn = nnx.value_and_grad(loss_fn, argnums=0)
     loss, grads = grad_fn(model, batch, batch_computations, config)
     return train_state.apply_gradients(grads), loss
