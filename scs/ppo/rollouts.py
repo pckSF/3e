@@ -113,7 +113,7 @@ def collect_trajectories(
             next_states=jnp.asarray(next_states, dtype=jnp.float32),
             terminals=jnp.asarray(terminals, dtype=jnp.uint32),
             n_steps=max_steps,
-            agents=jnp.arange(n_envs),
+            agents=n_envs,
         ),
         reset_mask,
         state,

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from flax import (
     struct,
 )
-import jax.numpy as jnp
 
 from scs.rl_computations import calculate_gae
 
@@ -31,7 +30,7 @@ class TrajectoryData:
 
     Static metadata:
     - n_steps:              int
-    - agents:               [N]
+    - agents:               int
     - samples:              bool
     """
 
@@ -42,7 +41,7 @@ class TrajectoryData:
     next_states: jax.Array
     terminals: jax.Array
     n_steps: int = struct.field(pytree_node=False)
-    agents: jax.Array = struct.field(pytree_node=False)
+    agents: int = struct.field(pytree_node=False)
     samples: bool = struct.field(pytree_node=False, default=False)
 
     @classmethod
@@ -89,7 +88,7 @@ class TrajectoryData:
             A TrajectoryData object with shape [T * N, ...] for states, actions,
             action_log_densities, rewards, next_states, and terminals.
         """
-        steps, agents = self.n_steps, self.agents.shape[0]
+        steps, agents = self.n_steps, self.agents
         return TrajectoryData(
             states=self.states.reshape((steps * agents, *self.states.shape[2:])),
             actions=self.actions.reshape((steps * agents, *self.actions.shape[2:])),
@@ -102,7 +101,7 @@ class TrajectoryData:
             ),
             terminals=self.terminals.reshape((steps * agents,)),
             n_steps=steps * agents,
-            agents=jnp.array(1),
+            agents=1,
             samples=self.samples,
         )
 
@@ -117,7 +116,7 @@ class ValueAndGAE:
 
     Static metadata:
     - n_steps:         int
-    - agents:          [N]
+    - agents:          int
     - gamma:           float
     - lam:             float
     - samples:         bool
@@ -126,7 +125,7 @@ class ValueAndGAE:
     values: jax.Array
     gae: jax.Array
     n_steps: int = struct.field(pytree_node=False)
-    agents: jax.Array = struct.field(pytree_node=False)
+    agents: int = struct.field(pytree_node=False)
     gamma: float = struct.field(pytree_node=False)
     lam: float = struct.field(pytree_node=False)
     samples: bool = struct.field(pytree_node=False, default=False)
@@ -217,12 +216,12 @@ class ValueAndGAE:
         Returns:
             A ValueAndGAE object with shape [T * N, ...] for values and gae.
         """
-        steps, agents = self.n_steps, self.agents.shape[0]
+        steps, agents = self.n_steps, self.agents
         return ValueAndGAE(
             values=self.values.reshape((steps * agents,)),
             gae=self.gae.reshape((steps * agents,)),
             n_steps=steps * agents,
-            agents=jnp.array(1),
+            agents=1,
             gamma=self.gamma,
             lam=self.lam,
             samples=self.samples,

@@ -94,7 +94,7 @@ def loss_fn(
     )
 
 
-@partial(jax.jit, static_argnums=(3,))
+@partial(jax.jit, static_argnames=("config",))
 def train_step(
     train_state: NNTrainingState,
     batch_indices: jax.Array,
