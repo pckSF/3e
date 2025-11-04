@@ -165,7 +165,7 @@ def evaluation_trajectory(
         if reset_mask.any():
             # Required to avoid error raised when passing an action to a terminated
             # environment. TODO: Better way to handle this?
-            state = envs.reset(options={"reset_mask": terminated})[0]
+            state = envs.reset(options={"reset_mask": reset_mask})[0]
         if terminated.all():
             break
     return rewards
