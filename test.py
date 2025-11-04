@@ -17,6 +17,7 @@ from scs.ppo.models import ActorCritic
 ############################################################################
 agent_config = get_config(
     learning_rate=2.5e-4,
+    learning_rate_end_value=0.0,
     learning_rate_decay=0.9995,
     discount_factor=0.99,
     clip_parameter=0.2,
@@ -53,10 +54,10 @@ envs.reset(seed=seed)
 
 # Create the model
 model = ActorCritic(rngs=rngs)
-lr_decay_schedule = optax.exponential_decay(
+lr_decay_schedule = optax.linear_schedule(
     init_value=agent_config.learning_rate,
+    end_value=0.0,
     transition_steps=agent_config.num_epochs * max_training_loops,
-    decay_rate=agent_config.learning_rate_decay,
 )
 train_state = NNTrainingState.create(
     model_def=nnx.graphdef(model),
