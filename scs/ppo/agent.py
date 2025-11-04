@@ -10,12 +10,15 @@ import jax
 import jax.numpy as jnp
 from jax.scipy.stats import norm
 
-from scs.data import ValueAndGAE
+from scs.data import (
+    TrajectoryData,
+    TrajectoryGAE,
+    compute_advantages,
+    get_advantage_batch,
+    get_trajectory_batch,
+)
 
 if TYPE_CHECKING:
-    from scs.data import (
-        TrajectoryData,
-    )
     from scs.nn_modules import NNTrainingState
     from scs.ppo.defaults import PPOConfig
     from scs.ppo.models import ActorCritic
@@ -44,7 +47,7 @@ def actor_action(
 def loss_fn(
     model: ActorCritic,
     batch: TrajectoryData,
-    batch_computations: ValueAndGAE,
+    batch_computations: TrajectoryGAE,
     config: PPOConfig,
 ) -> jax.Array:
     """Computes the PPO loss for a batch of trajectory data.
@@ -68,7 +71,7 @@ def loss_fn(
     """
     a_means, a_log_stds, values = model(batch.states)
     values = jnp.squeeze(values)
-    returns = batch_computations.gae + batch_computations.values
+    returns = batch_computations.advantages + batch_computations.values
     value_loss = jnp.mean((returns - values) ** 2).mean()
 
     entropy = jnp.sum(a_log_stds + 0.5 * (jnp.log(2 * jnp.pi) + 1), axis=-1).mean()
@@ -79,12 +82,12 @@ def loss_fn(
     density_ratios = jnp.exp(  # Density ratio for the action vectors
         jnp.sum(action_log_densities - batch.action_log_densities, axis=-1)
     )
-    policy_gradient_loss = density_ratios * batch_computations.gae
+    policy_gradient_loss = density_ratios * batch_computations.advantages
     clipped_pg_loss = (
         jax.lax.clamp(
             1.0 - config.clip_parameter, density_ratios, 1.0 + config.clip_parameter
         )
-        * batch_computations.gae
+        * batch_computations.advantages
     )
     ppo_loss = -jnp.mean(jnp.minimum(policy_gradient_loss, clipped_pg_loss), axis=0)
     return (
@@ -116,13 +119,13 @@ def train_step(
         A tuple containing the updated training state and the loss for the batch.
     """
     model = nnx.merge(train_state.model_def, train_state.model_state)
-    trajectory_computations = ValueAndGAE.create_from_trajectory(
+    trajectory_computations = compute_advantages(
         trajectory=trajectory,
         model=model,
         config=config,
     )
-    batch = trajectory.get_batch_data(batch_indices)
-    batch_computations = trajectory_computations.get_batch_data(batch_indices)
+    batch = get_trajectory_batch(trajectory, batch_indices)
+    batch_computations = get_advantage_batch(trajectory_computations, batch_indices)
     grad_fn = nnx.value_and_grad(loss_fn, argnums=0)
     loss, grads = grad_fn(model, batch, batch_computations, config)
     return train_state.apply_gradients(grads), loss

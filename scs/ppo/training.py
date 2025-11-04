@@ -10,6 +10,10 @@ import jax.numpy as jnp
 import numpy as np
 from tqdm import tqdm
 
+from scs.data import (
+    TrajectoryData,
+    stack_agent_trajectories,
+)
 from scs.ppo.agent import train_step
 from scs.ppo.rollouts import (
     collect_trajectories,
@@ -20,7 +24,6 @@ from scs.utils import get_train_batch_indices
 if TYPE_CHECKING:
     import gymnasium as gym
 
-    from scs.data import TrajectoryData
     from scs.data_logging import DataLogger
     from scs.nn_modules import NNTrainingState
     from scs.ppo.defaults import PPOConfig
@@ -48,7 +51,7 @@ def update_on_trajectory(
         A tuple containing the updated training state and the loss values for
         each training step.
     """
-    trajectories = trajectory.stack_agent_trajectories()
+    trajectories = stack_agent_trajectories(trajectory)
     batch_indices = get_train_batch_indices(
         samples=config.num_epochs,
         batch_size=config.batch_size,
