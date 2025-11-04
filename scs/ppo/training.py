@@ -40,7 +40,7 @@ def update_on_trajectory(
 ) -> tuple[NNTrainingState, jax.Array]:
     """Performs multiple updates on one collected trajectory.
 
-    Computes advantages and samples `config.num_epochs` batche indices for the
+    Computes advantages and samples `config.num_epochs` batch indices for the
     provided trajectory and performs training updates on the agent's model for
     each batch.
 
