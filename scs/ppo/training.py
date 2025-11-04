@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from scs.ppo.defaults import PPOConfig
 
 
-@partial(jax.jit, static_argnames=("config",))
+@partial(jax.jit, static_argnums=(2,))
 def update_on_trajectory(
     train_state: NNTrainingState,
     trajectory: TrajectoryData,

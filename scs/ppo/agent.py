@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import partial
 from typing import (
     TYPE_CHECKING,
 )
@@ -97,7 +96,6 @@ def loss_fn(
     )
 
 
-@partial(jax.jit, static_argnames=("config",))
 def train_step(
     train_state: NNTrainingState,
     batch_indices: jax.Array,
