@@ -94,13 +94,22 @@ def get_config(
             f"Batch size {batch_size} cannot be larger than total "
             f"collected steps {n_actors * n_actor_steps}."
         )
+    if optimizer.lower() not in ("adam", "sgd"):
+        raise ValueError(
+            f"Unsupported optimizer, expected 'adam' or 'sgd'; received: {optimizer}"
+        )
+    if lr_schedule.lower() not in ("linear", "exponential"):
+        raise ValueError(
+            f"Unsupported learning rate schedule, expected 'linear' or "
+            f"'exponential'; received {lr_schedule}"
+        )
     config = make_config(
         {
             "learning_rate": learning_rate,
             "learning_rate_end_value": learning_rate_end_value,
             "learning_rate_decay": learning_rate_decay,
-            "optimizer": optimizer,
-            "lr_schedule": lr_schedule,
+            "optimizer": optimizer.lower(),
+            "lr_schedule": lr_schedule.lower(),
             "discount_factor": discount_factor,
             "clip_parameter": clip_parameter,
             "entropy_coefficient": entropy_coefficient,

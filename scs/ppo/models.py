@@ -13,13 +13,13 @@ if TYPE_CHECKING:
 
 
 def get_optimizer(config: PPOConfig) -> optax.GradientTransformation:
-    if config.optimizer == "Adam":
+    if config.optimizer == "adam":
         optimizer = optax.adam
-    elif config.optimizer == "SGD":
+    elif config.optimizer == "sgd":
         optimizer = optax.sgd
     else:
         raise ValueError(
-            f"Unsupported optimizer, expected 'Adam' or 'SGD'; "
+            f"Unsupported optimizer, expected 'adam' or 'sgd'; "
             f"received: {config.optimizer}"
         )
     if config.lr_schedule == "linear":

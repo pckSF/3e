@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from flax import nnx
 import gymnasium as gym
-import optax
 
 from scs.data_logging import DataLogger
 from scs.nn_modules import NNTrainingState
@@ -10,7 +9,10 @@ from scs.ppo import train_agent
 from scs.ppo.defaults import (
     get_config,
 )
-from scs.ppo.models import ActorCritic
+from scs.ppo.models import (
+    ActorCritic,
+    get_optimizer,
+)
 
 ############################################################################
 # Hyperparameters
@@ -56,15 +58,10 @@ envs.reset(seed=seed)
 
 # Create the model
 model = ActorCritic(rngs=rngs)
-lr_decay_schedule = optax.linear_schedule(
-    init_value=agent_config.learning_rate,
-    end_value=0.0,
-    transition_steps=agent_config.num_epochs * agent_config.max_training_loops,
-)
 train_state = NNTrainingState.create(
     model_def=nnx.graphdef(model),
     model_state=nnx.state(model, nnx.Param),
-    optimizer=optax.adam(lr_decay_schedule),
+    optimizer=get_optimizer(agent_config),
 )
 
 train_state, envs, losses, rewards = train_agent(
