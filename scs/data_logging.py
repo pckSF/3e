@@ -107,6 +107,7 @@ class DataLogger:
         filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(filepath, "w") as json_file:
             json.dump(data, json_file, indent=4)
+        self.logger.info(f"Metadata saved to {filepath}")
 
     def save_checkpoint(
         self,
@@ -133,4 +134,7 @@ class DataLogger:
         self.checkpointer.save(
             self.log_dir / f"{filename}_{count:05d}",
             data,
+        )
+        self.logger.info(
+            f"Checkpoint saved to {self.log_dir / f'{filename}_{count:05d}'}"
         )

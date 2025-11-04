@@ -17,6 +17,7 @@ class PPOConfig(Protocol):
     """
 
     learning_rate: float
+    learning_rate_decay: float
     discount_factor: float
     clip_parameter: float
     entropy_coefficient: float
@@ -36,6 +37,7 @@ class PPOConfig(Protocol):
 
 def get_config(
     learning_rate: float = 2.5e-4,
+    learning_rate_decay: float = 0.99,
     discount_factor: float = 0.99,
     clip_parameter: float = 0.1,
     entropy_coefficient: float = 0.01,
@@ -57,6 +59,7 @@ def get_config(
 
     Args:
         learning_rate: The learning rate for the Adam optimizer.
+        learning_rate_decay: The decay rate for the learning rate schedule.
         discount_factor: The discount factor for future rewards (gamma).
         clip_parameter: The clipping parameter for the PPO surrogate objective.
         entropy_coefficient: The coefficient for the entropy term in the loss.
@@ -82,6 +85,7 @@ def get_config(
     config = make_config(
         {
             "learning_rate": learning_rate,
+            "learning_rate_decay": learning_rate_decay,
             "discount_factor": discount_factor,
             "clip_parameter": clip_parameter,
             "entropy_coefficient": entropy_coefficient,
