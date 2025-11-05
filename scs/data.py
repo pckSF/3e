@@ -177,7 +177,6 @@ def compute_advantages(
     """
     values = model.get_values(trajectory.states)
     next_values = model.get_values(trajectory.next_states)
-    # TODO: Normalize Advantages?
     advantages = calculate_gae(
         rewards=trajectory.rewards,
         values=values,

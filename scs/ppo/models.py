@@ -43,6 +43,9 @@ def get_optimizer(config: PPOConfig) -> optax.GradientTransformation:
     return optimizer(learning_rate=lr_schedule)
 
 
+# TODO: Test separate models in the same model by having two parllel data streams
+
+
 class ActorCritic(nnx.Module):
     def __init__(self, rngs: nnx.Rngs) -> None:
         self.linear_1: nnx.Linear = nnx.Linear(
