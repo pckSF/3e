@@ -57,7 +57,10 @@ def loss_fn(
                 = log(sigma) + 0.5 * (log(2 * pi) + 1)
 
     Since the optax optimizers perform gradient descent, we return the negative
-    of the total loss.
+    of the total loss. Reminder, the loss is composed of a
+    -   ppo_value, which are the weighted advantages that we want to maximize.
+    -   value_loss, which we want to minimize.
+    -   entropy, which we want to maximize.
 
     Args:
         model: The actor-critic model being trained.
@@ -80,16 +83,16 @@ def loss_fn(
     density_ratios = jnp.exp(  # Density ratio for the action vectors
         jnp.sum(action_log_densities - batch.action_log_densities, axis=-1)
     )
-    policy_gradient_loss = density_ratios * batch_computations.advantages
-    clipped_pg_loss = (
+    policy_gradient_value = density_ratios * batch_computations.advantages
+    clipped_pg_value = (
         jax.lax.clamp(
             1.0 - config.clip_parameter, density_ratios, 1.0 + config.clip_parameter
         )
         * batch_computations.advantages
     )
-    ppo_loss = jnp.mean(jnp.minimum(policy_gradient_loss, clipped_pg_loss), axis=0)
+    ppo_value = jnp.mean(jnp.minimum(policy_gradient_value, clipped_pg_value), axis=0)
     return -(
-        ppo_loss
+        ppo_value
         - config.value_loss_coefficient * value_loss
         + config.entropy_coefficient * entropy
     )
