@@ -34,25 +34,35 @@ def states_healthcheck(
         )
 
 
-@partial(jax.jit, static_argnums=(0, 1, 2, 4))
+@partial(
+    jax.jit,
+    static_argnums=(
+        0,
+        1,
+        2,
+        3,
+    ),
+)
 def get_train_batch_indices(
-    samples: int,
+    n_batches: int,
     batch_size: int,
     max_index: int,
+    resample: bool,
     key: jax.Array,
-    replace_for_rows: bool = False,
 ) -> jax.Array:
     """Generates random indices for training batches.
 
-    These indices can be used to slice out a batch from trajectory data.
-    `replace_for_rows` determines whether sampling for each row is done with or
-    without replacement, as in are the same indices allowed within one batch.
+    Without resampling `n_batches * batch_size` must be less or equal than the
+    `max_index` since no sample is allowed to repeat across the set of batches.
+
+    With resampling, each batch is sampled independently, allowing for samples
+    to reappear in multiple batches.
     """
     indices = jnp.arange(max_index)
-    if replace_for_rows:
-        return jax.random.choice(key, indices, (samples, batch_size), replace=True)
+    if not resample:
+        return jax.random.choice(key, indices, (n_batches, batch_size), replace=False)
     else:
-        keys = jax.random.split(key, samples)
+        keys = jax.random.split(key, n_batches)
         return jax.lax.map(
             partial(jax.random.choice, a=indices, shape=(batch_size,), replace=False),
             keys,

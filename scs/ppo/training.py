@@ -64,11 +64,11 @@ def update_on_trajectory(
     trajectories = stack_agent_trajectories(trajectory)
     trajectory_advantages = stack_agent_advantages(trajectory_advantages)
     batch_indices = get_train_batch_indices(
-        samples=config.num_epochs,
+        n_batches=config.num_epochs,
         batch_size=config.batch_size,
         max_index=trajectories.n_steps,
+        resample=False,
         key=key,
-        replace_for_rows=False,
     )
     train_state, (loss, loss_components) = jax.lax.scan(
         partial(
