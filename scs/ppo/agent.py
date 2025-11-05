@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from scs.ppo.models import ActorCritic
 
 
-@nnx.jit(static_argnums=(3,))
+@nnx.jit
 def actor_action(
     model: ActorCritic,
     states: jax.Array,
@@ -56,6 +56,9 @@ def loss_fn(
         H(X)    = log(sigma * sqrt(2 * pi * e))
                 = log(sigma) + 0.5 * (log(2 * pi) + 1)
 
+    Since the optax optimizers perform gradient descent, we return the negative
+    of the total loss.
+
     Args:
         model: The actor-critic model being trained.
         batch: A batch of trajectory data from rollouts.
@@ -68,8 +71,7 @@ def loss_fn(
     a_means, a_log_stds, values = model(batch.states)
     values = jnp.squeeze(values)
     returns = batch_computations.advantages + batch_computations.values
-    value_loss = jnp.mean((returns - values) ** 2).mean()
-
+    value_loss = jnp.mean((returns - values) ** 2)
     entropy = jnp.sum(a_log_stds + 0.5 * (jnp.log(2 * jnp.pi) + 1), axis=-1).mean()
 
     action_log_densities = norm.logpdf(
@@ -85,10 +87,10 @@ def loss_fn(
         )
         * batch_computations.advantages
     )
-    ppo_loss = -jnp.mean(jnp.minimum(policy_gradient_loss, clipped_pg_loss), axis=0)
-    return (
+    ppo_loss = jnp.mean(jnp.minimum(policy_gradient_loss, clipped_pg_loss), axis=0)
+    return -(
         ppo_loss
-        + config.value_loss_coefficient * value_loss
+        - config.value_loss_coefficient * value_loss
         + config.entropy_coefficient * entropy
     )
 

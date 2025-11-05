@@ -140,7 +140,7 @@ def train_agent(
         data_logger.save_csv_row("losses", loss)
         loss_history.append(float(np.mean(loss)))
         model = nnx.merge(train_state.model_def, train_state.model_state)
-        if training_loop & config.evaluation_frequency == 0:
+        if training_loop % config.evaluation_frequency == 0:
             eval_rewards = evaluation_trajectory(
                 model=model,
                 envs=eval_envs,
