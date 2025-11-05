@@ -132,7 +132,7 @@ def train_agent(
             config=config,
             key=rngs.sample(),
         )
-        if training_loop % config.save_checkpoints == 0:
+        if (training_loop + 1) % config.save_checkpoints == 0:
             data_logger.save_checkpoint(
                 filename="checkpoint",
                 data=train_state.model_state,
@@ -140,12 +140,13 @@ def train_agent(
         data_logger.save_csv_row("losses", loss)
         loss_history.append(float(np.mean(loss)))
         model = nnx.merge(train_state.model_def, train_state.model_state)
-        eval_rewards = evaluation_trajectory(
-            model=model,
-            envs=eval_envs,
-            config=config,
-            rng=rngs,
-        )
+        if training_loop & config.evaluation_frequency == 0:
+            eval_rewards = evaluation_trajectory(
+                model=model,
+                envs=eval_envs,
+                config=config,
+                rng=rngs,
+            )
         data_logger.save_csv_row("eval_rewards", eval_rewards)
         eval_history.append(float(np.mean(eval_rewards)))
         progress_bar.set_postfix(

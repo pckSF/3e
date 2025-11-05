@@ -9,7 +9,6 @@ import jax.numpy as jnp
 from jax.scipy.stats import norm
 import numpy as np
 
-from scs import utils
 from scs.data import (
     TrajectoryData,
 )
@@ -69,31 +68,26 @@ def collect_trajectories(
     terminals = np.zeros((max_steps, n_envs), dtype=np.bool_)
 
     if reset_mask.any():
-        continue_state: np.ndarray = envs.reset(options={"reset_mask": reset_mask})[0]
-        # TODO: Remove this check once it works reliably
-        utils.states_healthcheck(state, continue_state, np.logical_not(reset_mask))
-        state = continue_state
+        state = envs.reset(options={"reset_mask": reset_mask})[0]
 
     for ts in range(max_steps):
-        action, a_noise, a_mean, a_log_std = actor_action(
+        action, a_mean, a_log_std = actor_action(
             model,
             jnp.asarray(state, dtype=jnp.float32),
             rng,
-            config,
         )
-        taken_action = action + a_noise
         action_log_density = jax.jit(norm.logpdf)(
-            taken_action,
+            action,
             loc=a_mean,
             scale=jnp.exp(a_log_std),
         )
         next_state, reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
-            np.tanh(np.asarray(taken_action))
+            np.tanh(np.asarray(action))
         )
 
         states[ts] = state
         next_states[ts] = next_state
-        actions[ts] = np.asarray(taken_action)
+        actions[ts] = np.asarray(action)
         action_log_densities[ts] = np.asarray(action_log_density)
         rewards[ts] = reward
         terminals[ts] = terminal
@@ -148,11 +142,10 @@ def evaluation_trajectory(
     state: np.ndarray = envs.reset()[0]
     terminated = np.zeros((n_envs,), dtype=bool)
     for _ts in range(10000):
-        action, _a_noise, _a_mean, _a_log_std = actor_action(
+        action, _a_mean, _a_log_std = actor_action(
             model,
             jnp.asarray(state, dtype=jnp.float32),
             rng,
-            config,
         )
         state, step_reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
             np.tanh(np.asarray(action))

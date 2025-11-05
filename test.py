@@ -18,27 +18,29 @@ from scs.ppo.models import (
 # Hyperparameters
 ############################################################################
 agent_config = get_config(
-    learning_rate=2.5e-4,
+    learning_rate=3e-4,
     learning_rate_end_value=0.0,
     learning_rate_decay=0.9995,
     optimizer="adam",
     lr_schedule="linear",
     discount_factor=0.99,
-    clip_parameter=0.2,
+    clip_parameter=0.1,
     entropy_coefficient=0.01,
     gae_lambda=0.95,
     n_actors=8,
-    n_actor_steps=128,
-    batch_size=64,
-    num_epochs=10,
-    action_noise=0.0,
+    n_actor_steps=256,
+    batch_size=256,
+    num_epochs=5,
+    value_loss_coefficient=0.5,
+    exploration_coefficient=0.01,
+    evluation_frequency=25,
     normalize_advantages=True,
     max_training_loops=10000,
 )
 seed: int = 0
 ############################################################################
 # Setup logging
-logger = DataLogger(log_dir="data/logs/ppo_hopper")
+logger = DataLogger(log_dir="logs/ppo_hopper")
 
 # Setup RNG
 rngs = nnx.Rngs(

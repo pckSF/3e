@@ -29,10 +29,10 @@ class PPOConfig(Protocol):
     n_actor_steps: int
     batch_size: int
     num_epochs: int
-    action_noise: float
     value_loss_coefficient: float
     exploration_coefficient: float
     save_checkpoints: int
+    evaluation_frequency: int
     normalize_advantages: bool
     max_training_loops: int
 
@@ -53,10 +53,10 @@ def get_config(
     n_actor_steps: int = 128,
     batch_size: int = 256,
     num_epochs: int = 3,
-    action_noise: float = 0.2,
     value_loss_coefficient: float = 0.5,
     exploration_coefficient: float = 0.01,
     save_checkpoints: int = 500,
+    evluation_frequency: int = 25,
     normalize_advantages: bool = False,
     max_training_loops: int = 10000,
 ) -> PPOConfig:
@@ -79,10 +79,10 @@ def get_config(
         n_actor_steps: The number of steps each actor takes before updating the model.
         batch_size: The number of samples per batch for training.
         num_epochs: The number of epochs for training on each batch of data.
-        action_noise: Noise added to the actions for exploration.
         value_loss_coefficient: Coefficient for the value loss term.
         exploration_coefficient: Coefficient for the exploration bonus.
         save_checkpoints: Frequency of saving model checkpoints.
+        evaluation_frequency: Frequency of running policy evaluations.
         normalize_advantages: Whether to normalize advantages.
         max_training_loops: The maximum number of training loops to perform.
 
@@ -118,10 +118,10 @@ def get_config(
             "n_actor_steps": n_actor_steps,
             "batch_size": batch_size,
             "num_epochs": num_epochs,
-            "action_noise": action_noise,
             "value_loss_coefficient": value_loss_coefficient,
             "exploration_coefficient": exploration_coefficient,
             "save_checkpoints": save_checkpoints,
+            "evaluation_frequency": evluation_frequency,
             "normalize_advantages": normalize_advantages,
             "max_training_loops": max_training_loops,
         }
