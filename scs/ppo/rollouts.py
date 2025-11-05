@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 def collect_trajectories(
     model: ActorCritic,
-    envs: gym.vector.SyncVectorEnv,
+    envs: gym.vector.AsyncVectorEnv,
     reset_mask: np.ndarray,
     state: np.ndarray,
     rng: nnx.Rngs,
@@ -116,7 +116,7 @@ def collect_trajectories(
 
 def evaluation_trajectory(
     model: ActorCritic,
-    envs: gym.vector.SyncVectorEnv,
+    envs: gym.vector.AsyncVectorEnv,
     rng: nnx.Rngs,
     config: PPOConfig,
 ) -> np.ndarray:

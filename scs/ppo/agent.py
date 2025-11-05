@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from scs.ppo.models import ActorCritic
 
 
-@nnx.jit(static_argnums=(3,))
+@nnx.jit
 def actor_action(
     model: ActorCritic,
     states: jax.Array,

@@ -1,17 +1,9 @@
 from __future__ import annotations
 
-from flax import nnx
 import gymnasium as gym
 
-from scs.data_logging import DataLogger
-from scs.nn_modules import NNTrainingState
-from scs.ppo import train_agent
 from scs.ppo.defaults import (
     get_config,
-)
-from scs.ppo.models import (
-    ActorCritic,
-    get_optimizer,
 )
 
 ############################################################################
@@ -39,6 +31,28 @@ agent_config = get_config(
 )
 seed: int = 0
 ############################################################################
+# Setup vectorized environment
+envs = gym.vector.AsyncVectorEnv(
+    [lambda: gym.make("Hopper-v5") for _ in range(agent_config.n_actors)],
+    autoreset_mode=gym.vector.AutoresetMode.DISABLED,
+)
+envs.reset(seed=seed)
+eval_envs = gym.vector.AsyncVectorEnv(
+    [lambda: gym.make("Hopper-v5") for _ in range(agent_config.n_actors)],
+    autoreset_mode=gym.vector.AutoresetMode.DISABLED,
+)
+eval_envs.reset(seed=seed)
+
+from flax import nnx
+
+from scs.data_logging import DataLogger
+from scs.nn_modules import NNTrainingState
+from scs.ppo import train_agent
+from scs.ppo.models import (
+    ActorCritic,
+    get_optimizer,
+)
+
 # Setup logging
 logger = DataLogger(log_dir="logs/ppo_hopper")
 
@@ -51,12 +65,6 @@ rngs = nnx.Rngs(
     sample=seed + 4,
     trajectory=seed + 5,
 )
-# Setup vectorized environment
-envs = gym.vector.SyncVectorEnv(
-    [lambda: gym.make("Hopper-v5") for _ in range(agent_config.n_actors)],
-    autoreset_mode=gym.vector.AutoresetMode.DISABLED,
-)
-envs.reset(seed=seed)
 
 # Create the model
 model = ActorCritic(rngs=rngs)
@@ -66,9 +74,10 @@ train_state = NNTrainingState.create(
     optimizer=get_optimizer(agent_config),
 )
 
-train_state, envs, losses, rewards = train_agent(
+train_state, losses, rewards = train_agent(
     train_state=train_state,
     envs=envs,
+    eval_envs=eval_envs,
     config=agent_config,
     data_logger=logger,
     max_training_loops=agent_config.max_training_loops,

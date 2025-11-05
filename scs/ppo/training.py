@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -83,12 +82,13 @@ def update_on_trajectory(
 
 def train_agent(
     train_state: NNTrainingState,
-    envs: gym.vector.SyncVectorEnv,
+    envs: gym.vector.AsyncVectorEnv,
+    eval_envs: gym.vector.AsyncVectorEnv,
     config: PPOConfig,
     data_logger: DataLogger,
     max_training_loops: int,
     rngs: nnx.Rngs,
-) -> tuple[NNTrainingState, gym.vector.SyncVectorEnv, jax.Array, jax.Array]:
+) -> tuple[NNTrainingState, jax.Array, jax.Array]:
     """Trains a PPO agent over a specified number of training loops.
 
     For each loop a trajectory of `config.n_actor_steps` is collected from the
@@ -115,7 +115,6 @@ def train_agent(
     model = nnx.merge(train_state.model_def, train_state.model_state)
     loss_history: list[float] = []
     eval_history: list[float] = []
-    eval_envs: gym.vector.SyncVectorEnv = deepcopy(envs)
     progress_bar: tqdm = tqdm(range(max_training_loops), desc="Training Loops")
     for training_loop in progress_bar:
         trajectories, reset_mask, states = collect_trajectories(
@@ -155,4 +154,4 @@ def train_agent(
                 "eval reward": f"{eval_history[-1]:.2f}",
             }
         )
-    return train_state, envs, jnp.array(loss_history), jnp.array(eval_history)
+    return train_state, jnp.array(loss_history), jnp.array(eval_history)
