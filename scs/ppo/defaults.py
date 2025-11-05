@@ -56,7 +56,7 @@ def get_config(
     value_loss_coefficient: float = 0.5,
     exploration_coefficient: float = 0.01,
     save_checkpoints: int = 500,
-    evluation_frequency: int = 25,
+    evaluation_frequency: int = 25,
     normalize_advantages: bool = False,
     max_training_loops: int = 10000,
 ) -> PPOConfig:
@@ -121,7 +121,7 @@ def get_config(
             "value_loss_coefficient": value_loss_coefficient,
             "exploration_coefficient": exploration_coefficient,
             "save_checkpoints": save_checkpoints,
-            "evaluation_frequency": evluation_frequency,
+            "evaluation_frequency": evaluation_frequency,
             "normalize_advantages": normalize_advantages,
             "max_training_loops": max_training_loops,
         }

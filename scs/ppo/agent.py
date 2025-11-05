@@ -45,7 +45,7 @@ def loss_fn(
     batch: TrajectoryData,
     batch_computations: TrajectoryGAE,
     config: PPOConfig,
-) -> jax.Array:
+) -> tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array, jax.Array]]:
     """Computes the PPO loss for a batch of trajectory data.
 
     This function calculates the combined loss for the actor-critic model, which
@@ -80,9 +80,11 @@ def loss_fn(
     action_log_densities = norm.logpdf(
         batch.actions, loc=a_means, scale=jnp.exp(a_log_stds)
     )
-    density_ratios = jnp.exp(  # Density ratio for the action vectors
-        jnp.sum(action_log_densities - batch.action_log_densities, axis=-1)
-    )
+    # Density ratio for the action vectors that constitute an action
+    log_ratios = jnp.sum(action_log_densities - batch.action_log_densities, axis=-1)
+    density_ratios = jnp.exp(log_ratios)
+    kl_estimate = ((density_ratios - 1) - log_ratios).mean()
+
     policy_gradient_value = density_ratios * batch_computations.advantages
     clipped_pg_value = (
         jax.lax.clamp(
@@ -95,7 +97,7 @@ def loss_fn(
         ppo_value
         - config.value_loss_coefficient * value_loss
         + config.entropy_coefficient * entropy
-    )
+    ), (ppo_value, value_loss, entropy, kl_estimate)
 
 
 def train_step(
@@ -104,7 +106,9 @@ def train_step(
     trajectory: TrajectoryData,
     trajectory_advantages: TrajectoryGAE,
     config: PPOConfig,
-) -> tuple[NNTrainingState, jax.Array]:
+) -> tuple[
+    NNTrainingState, tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array, jax.Array]]
+]:
     """Performs a single training step on a batch of data.
 
     This function is designed to be used with `jax.lax.scan` to iterate over
@@ -123,6 +127,6 @@ def train_step(
     model = nnx.merge(train_state.model_def, train_state.model_state)
     batch = get_trajectory_batch(trajectory, batch_indices)
     batch_computations = get_advantage_batch(trajectory_advantages, batch_indices)
-    grad_fn = nnx.value_and_grad(loss_fn, argnums=0)
-    loss, grads = grad_fn(model, batch, batch_computations, config)
-    return train_state.apply_gradients(grads), loss
+    grad_fn = nnx.value_and_grad(loss_fn, argnums=0, has_aux=True)
+    (loss, *loss_components), grads = grad_fn(model, batch, batch_computations, config)
+    return train_state.apply_gradients(grads), (loss, loss_components)

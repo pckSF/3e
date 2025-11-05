@@ -37,7 +37,9 @@ def update_on_trajectory(
     trajectory: TrajectoryData,
     config: PPOConfig,
     key: jax.Array,
-) -> tuple[NNTrainingState, jax.Array]:
+) -> tuple[
+    NNTrainingState, jax.Array, tuple[jax.Array, jax.Array, jax.Array, jax.Array]
+]:
     """Performs multiple updates on one collected trajectory.
 
     Computes advantages and samples `config.num_epochs` batch indices for the
@@ -68,7 +70,7 @@ def update_on_trajectory(
         key=key,
         replace_for_rows=False,
     )
-    train_state, loss = jax.lax.scan(
+    train_state, (loss, loss_components) = jax.lax.scan(
         partial(
             train_step,
             trajectory=trajectories,
@@ -78,7 +80,7 @@ def update_on_trajectory(
         train_state,
         batch_indices,
     )
-    return train_state, loss
+    return train_state, loss, loss_components
 
 
 def train_agent(
@@ -126,7 +128,7 @@ def train_agent(
             rng=rngs,
             config=config,
         )
-        train_state, loss = update_on_trajectory(
+        train_state, loss, loss_components = update_on_trajectory(
             train_state=train_state,
             trajectory=trajectories,
             config=config,
@@ -138,6 +140,11 @@ def train_agent(
                 data=train_state.model_state,
             )
         data_logger.save_csv_row("losses", loss)
+        ppo_value, value_loss, entropy, kl_estimate = loss_components[0]
+        data_logger.save_csv_row("ppo_value", ppo_value)
+        data_logger.save_csv_row("value_loss", value_loss)
+        data_logger.save_csv_row("entropy", entropy)
+        data_logger.save_csv_row("kl_estimate", kl_estimate)
         loss_history.append(float(np.mean(loss)))
         model = nnx.merge(train_state.model_def, train_state.model_state)
         if training_loop % config.evaluation_frequency == 0:
@@ -147,8 +154,8 @@ def train_agent(
                 config=config,
                 rng=rngs,
             )
-        data_logger.save_csv_row("eval_rewards", eval_rewards)
-        eval_history.append(float(np.mean(eval_rewards)))
+            data_logger.save_csv_row("eval_rewards", eval_rewards)
+            eval_history.append(float(np.mean(eval_rewards)))
         progress_bar.set_postfix(
             {
                 "loss": f"{loss_history[-1]:.4f}",
