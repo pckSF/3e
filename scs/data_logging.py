@@ -55,6 +55,10 @@ class DataLogger:
 
         self.checkpointer: ocp.Checkpointer = ocp.StandardCheckpointer()
 
+    def wait_until_finished(self) -> None:
+        """Waits for all asynchronous checkpointing operations to complete."""
+        self.checkpointer.wait_until_finished()
+
     def log_info(self, message: str) -> None:
         """Logs an informational message."""
         self.logger.info(message)

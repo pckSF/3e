@@ -162,4 +162,5 @@ def train_agent(
                 "eval reward": f"{eval_history[-1]:.2f}",
             }
         )
+    data_logger.wait_until_finished()
     return train_state, envs, jnp.array(loss_history), jnp.array(eval_history)
