@@ -39,7 +39,7 @@ agent_config = get_config(
 seed: int = 0
 ############################################################################
 # Setup logging
-logger = DataLogger(log_dir="logs/ppo_hopper_two_networks_short_heads")
+logger = DataLogger(log_dir="logs/ppo_hopper")
 
 # Setup RNG
 rngs = nnx.Rngs(
