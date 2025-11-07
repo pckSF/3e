@@ -19,11 +19,11 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
     from scs.ppo.defaults import PPOConfig
-    from scs.ppo.models import ActorCritic
+    from scs.ppo.models import PolicyValue
 
 
 def collect_trajectories(
-    model: ActorCritic,
+    model: PolicyValue,
     envs: gym.vector.SyncVectorEnv,
     reset_mask: np.ndarray,
     state: np.ndarray,
@@ -40,7 +40,7 @@ def collect_trajectories(
     usable interaction data for training.
 
     Args:
-        model: The `ActorCritic` model used to select actions.
+        model: The `PolicyValue` model used to select actions.
         envs: The vectorized `gymnasium` environment for interaction.
         reset_mask: A boolean array indicating which environments in the vector
             should be reset before starting data collection. This is passed from
@@ -115,7 +115,7 @@ def collect_trajectories(
 
 
 def evaluation_trajectory(
-    model: ActorCritic,
+    model: PolicyValue,
     envs: gym.vector.SyncVectorEnv,
     rng: nnx.Rngs,
     config: PPOConfig,
@@ -127,7 +127,7 @@ def evaluation_trajectory(
     accumulates the total reward for each episode.
 
     Args:
-        model: The `ActorCritic` model to be evaluated.
+        model: The `PolicyValue` model to be evaluated.
         envs: The vectorized `gymnasium` environment.
         rng: The JAX random number generator state.
         config: The PPO configuration object.

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     import jax
 
     from scs.ppo.defaults import PPOConfig
-    from scs.ppo.models import ActorCritic
+    from scs.ppo.models import PolicyValue
 
 
 @struct.dataclass
@@ -157,7 +157,7 @@ class TrajectoryGAE:
 
 def compute_advantages(
     trajectory: TrajectoryData,
-    model: ActorCritic,
+    model: PolicyValue,
     config: PPOConfig,
 ) -> TrajectoryGAE:
     """Creates a TrajectoryGAE object from a standard trajectory.

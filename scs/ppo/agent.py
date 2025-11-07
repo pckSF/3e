@@ -19,12 +19,12 @@ from scs.data import (
 if TYPE_CHECKING:
     from scs.nn_modules import NNTrainingState
     from scs.ppo.defaults import PPOConfig
-    from scs.ppo.models import ActorCritic
+    from scs.ppo.models import PolicyValue
 
 
 @nnx.jit
 def actor_action(
-    model: ActorCritic,
+    model: PolicyValue,
     states: jax.Array,
     rng: nnx.Rngs,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
@@ -41,7 +41,7 @@ def actor_action(
 
 
 def loss_fn(
-    model: ActorCritic,
+    model: PolicyValue,
     batch: TrajectoryData,
     batch_computations: TrajectoryGAE,
     config: PPOConfig,

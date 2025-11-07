@@ -10,7 +10,7 @@ from scs.ppo.defaults import (
     get_config,
 )
 from scs.ppo.models import (
-    ActorCritic,
+    PolicyValue,
     get_optimizer,
 )
 
@@ -58,7 +58,7 @@ envs = gym.vector.SyncVectorEnv(
 envs.reset(seed=seed)
 
 # Create the model
-model = ActorCritic(rngs=rngs)
+model = PolicyValue(rngs=rngs)
 train_state = NNTrainingState.create(
     model_def=nnx.graphdef(model),
     model_state=nnx.state(model, nnx.Param),
