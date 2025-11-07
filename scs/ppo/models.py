@@ -48,36 +48,36 @@ def get_optimizer(config: PPOConfig) -> optax.GradientTransformation:
 
 class ActorCritic(nnx.Module):
     def __init__(self, rngs: nnx.Rngs) -> None:
-        self.linear_1: nnx.Linear = nnx.Linear(
+        self.critic_linear_1: nnx.Linear = nnx.Linear(
             in_features=11,
             out_features=256,
             kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
-        self.layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
+        self.critic_layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
             num_features=256,
             rngs=rngs,
         )
-        self.linear_2 = nnx.Linear(
+        self.critic_linear_2 = nnx.Linear(
             in_features=256,
             out_features=256,
             kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
-        self.layernorm_2: nnx.LayerNorm = nnx.LayerNorm(
+        self.critic_layernorm_2: nnx.LayerNorm = nnx.LayerNorm(
             num_features=256,
             rngs=rngs,
         )
-        self.critic_linear_1: nnx.Linear = nnx.Linear(
+        self.critic_linear_3: nnx.Linear = nnx.Linear(
             in_features=256,
             out_features=128,
             kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
-        self.critic_layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
+        self.critic_layernorm_3: nnx.LayerNorm = nnx.LayerNorm(
             num_features=128,
             rngs=rngs,
         )
@@ -88,14 +88,41 @@ class ActorCritic(nnx.Module):
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
+
         self.actor_linear_1: nnx.Linear = nnx.Linear(
+            in_features=11,
+            out_features=256,
+            kernel_init=nnx.initializers.orthogonal(),
+            bias_init=nnx.initializers.zeros,
+            rngs=rngs,
+        )
+        self.actor_layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
+            num_features=256,
+            rngs=rngs,
+        )
+        self.actor_linear_2: nnx.Linear = nnx.Linear(
+            in_features=256,
+            out_features=256,
+            kernel_init=nnx.initializers.orthogonal(),
+            bias_init=nnx.initializers.zeros,
+            rngs=rngs,
+        )
+        self.actor_layernorm_2: nnx.LayerNorm = nnx.LayerNorm(
+            num_features=256,
+            rngs=rngs,
+        )
+        self.actor_linear_3: nnx.Linear = nnx.Linear(
             in_features=256,
             out_features=128,
             kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
-        self.actor_layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
+        self.actor_layernorm_3: nnx.LayerNorm = nnx.LayerNorm(
+            num_features=128,
+            rngs=rngs,
+        )
+        self.mean_layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
             num_features=128,
             rngs=rngs,
         )
@@ -123,10 +150,14 @@ class ActorCritic(nnx.Module):
             - The action log standard deviations.
             - The state value estimates.
         """
-        x = nnx.relu(self.layernorm_1(self.linear_1(x)))
-        x = nnx.relu(self.layernorm_2(self.linear_2(x)))
         c = nnx.relu(self.critic_layernorm_1(self.critic_linear_1(x)))
+        c = nnx.relu(self.critic_layernorm_2(self.critic_linear_2(c)))
+        c = nnx.relu(self.critic_layernorm_3(self.critic_linear_3(c)))
+
         a = nnx.relu(self.actor_layernorm_1(self.actor_linear_1(x)))
+        a = nnx.relu(self.actor_layernorm_2(self.actor_linear_2(a)))
+        a = nnx.relu(self.actor_layernorm_3(self.actor_linear_3(a)))
+
         return (
             self.actor_mean(a),
             self.actor_log_std(a),
