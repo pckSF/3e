@@ -117,7 +117,7 @@ def train_step(
     Args:
         train_state: The current training state, acting as the carry in a scan.
         batch_indices: The indices for the data batch to be processed.
-        trajectory: The full trajectory data for the epoch.
+        trajectories: The full stacked trajectory of all agent data for the epoch.
         trajectory_advantages: The pre-computed advantages for the full trajectory.
         config: The agent's configuration.
 

@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 @partial(jax.jit, static_argnums=(2,))
 def update_on_trajectory(
     train_state: NNTrainingState,
-    trajectory: TrajectoryData,
+    trajectories: TrajectoryData,
     config: PPOConfig,
     key: jax.Array,
 ) -> tuple[
@@ -48,7 +48,7 @@ def update_on_trajectory(
 
     Args:
         train_state: The neural network model's training state container.
-        trajectory: A trajectory of experience collected from the environment.
+        trajectories: Trajectories of experience collected from the environment.
         config: The agent's configuration.
         key: A JAX random key for generating batch indices.
 
@@ -57,11 +57,11 @@ def update_on_trajectory(
         each training step.
     """
     trajectory_advantages = compute_advantages(
-        trajectory,
+        trajectories,
         nnx.merge(train_state.model_def, train_state.model_state),
         config,
     )
-    trajectories = stack_agent_trajectories(trajectory)
+    trajectories = stack_agent_trajectories(trajectories)
     trajectory_advantages = stack_agent_advantages(trajectory_advantages)
     batch_indices = get_train_batch_indices(
         n_batches=config.num_epochs,
@@ -130,7 +130,7 @@ def train_agent(
         )
         train_state, loss, loss_components = update_on_trajectory(
             train_state=train_state,
-            trajectory=trajectories,
+            trajectories=trajectories,
             config=config,
             key=rngs.sample(),
         )
