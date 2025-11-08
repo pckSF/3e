@@ -43,9 +43,6 @@ def get_optimizer(config: PPOConfig) -> optax.GradientTransformation:
     return optimizer(learning_rate=lr_schedule)
 
 
-# TODO: Test separate models in the same model by having two parllel data streams
-
-
 class PolicyValue(nnx.Module):
     def __init__(self, rngs: nnx.Rngs) -> None:
         # Value network layers
