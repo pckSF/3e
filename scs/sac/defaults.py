@@ -21,11 +21,11 @@ class SACConfig(Protocol):
     lr_end_value_policy: float
     lr_decay_policy: float
     optimizer_policy: str
-    lr_value: float
-    lr_schedule_value: str
-    lr_end_value_value: float
-    lr_decay_value: float
-    optimizer_value: str
+    lr_qvalue: float
+    lr_schedule_qvalue: str
+    lr_end_value_qvalue: float
+    lr_decay_qvalue: float
+    optimizer_qvalue: str
     discount_factor: float
     n_actors: int
     n_actor_steps: int
@@ -44,11 +44,11 @@ def get_config(
     lr_end_value_policy: float = 0.0,
     lr_decay_policy: float = 0.99,
     optimizer_policy: str = "adam",
-    lr_value: float = 3e-4,
-    lr_schedule_value: str = "linear",
-    lr_end_value_value: float = 0.0,
-    lr_decay_value: float = 0.99,
-    optimizer_value: str = "adam",
+    lr_qvalue: float = 3e-4,
+    lr_schedule_qvalue: str = "linear",
+    lr_end_value_qvalue: float = 0.0,
+    lr_decay_qvalue: float = 0.99,
+    optimizer_qvalue: str = "adam",
     discount_factor: float = 0.99,
     n_actors: int = 10,
     n_actor_steps: int = 128,
@@ -69,11 +69,11 @@ def get_config(
         lr_end_value_policy: The end value for the policy learning rate schedule.
         lr_decay_policy: The decay rate for the policy learning rate schedule.
         optimizer_policy: The optimizer to use for policy training.
-        lr_value: The learning rate for the value optimizer.
-        lr_schedule_value: The learning rate schedule type for the value function.
-        lr_end_value_value: The end value for the value learning rate schedule.
-        lr_decay_value: The decay rate for the value learning rate schedule.
-        optimizer_value: The optimizer to use for value function training.
+        lr_qvalue: The learning rate for the Q-value optimizer.
+        lr_schedule_qvalue: The learning rate schedule type for the Q-value function.
+        lr_end_value_qvalue: The end value for the Q-value learning rate schedule.
+        lr_decay_qvalue: The decay rate for the Q-value learning rate schedule.
+        optimizer_qvalue: The optimizer to use for Q-value function training.
         discount_factor: The discount factor for future rewards (gamma).
         n_actors: The number of parallel actors collecting experience.
         n_actor_steps: The number of steps each actor takes before updating the model.
@@ -96,20 +96,20 @@ def get_config(
             f"Unsupported policy optimizer, expected 'adam' or 'sgd'; "
             f"received: {optimizer_policy}"
         )
-    if optimizer_value.lower() not in ("adam", "sgd"):
+    if optimizer_qvalue.lower() not in ("adam", "sgd"):
         raise ValueError(
-            f"Unsupported value optimizer, expected 'adam' or 'sgd'; "
-            f"received: {optimizer_value}"
+            f"Unsupported Q-value optimizer, expected 'adam' or 'sgd'; "
+            f"received: {optimizer_qvalue}"
         )
     if lr_schedule_policy.lower() not in ("linear", "exponential"):
         raise ValueError(
             f"Unsupported policy learning rate schedule, expected 'linear' or "
             f"'exponential'; received {lr_schedule_policy}"
         )
-    if lr_schedule_value.lower() not in ("linear", "exponential"):
+    if lr_schedule_qvalue.lower() not in ("linear", "exponential"):
         raise ValueError(
-            f"Unsupported value learning rate schedule, expected 'linear' or "
-            f"'exponential'; received {lr_schedule_value}"
+            f"Unsupported Q-value learning rate schedule, expected 'linear' or "
+            f"'exponential'; received {lr_schedule_qvalue}"
         )
     config = make_config(
         {
@@ -118,11 +118,11 @@ def get_config(
             "lr_end_value_policy": lr_end_value_policy,
             "lr_decay_policy": lr_decay_policy,
             "optimizer_policy": optimizer_policy.lower(),
-            "lr_value": lr_value,
-            "lr_schedule_value": lr_schedule_value.lower(),
-            "lr_end_value_value": lr_end_value_value,
-            "lr_decay_value": lr_decay_value,
-            "optimizer_value": optimizer_value.lower(),
+            "lr_qvalue": lr_qvalue,
+            "lr_schedule_qvalue": lr_schedule_qvalue.lower(),
+            "lr_end_value_qvalue": lr_end_value_qvalue,
+            "lr_decay_qvalue": lr_decay_qvalue,
+            "optimizer_qvalue": optimizer_qvalue.lower(),
             "discount_factor": discount_factor,
             "n_actors": n_actors,
             "n_actor_steps": n_actor_steps,

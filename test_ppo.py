@@ -62,7 +62,7 @@ model = PolicyValue(rngs=rngs)
 train_state = NNTrainingState.create(
     model_def=nnx.graphdef(model),
     model_state=nnx.state(model, nnx.Param),
-    optimizer=get_optimizer(agent_config),
+    optimizer=get_optimizer(agent_config, model),
 )
 
 train_state, envs, losses, rewards = train_agent(
