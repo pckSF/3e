@@ -16,11 +16,11 @@ class PPOConfig(Protocol):
     improving code completion.
     """
 
-    lr_policy_value: float
-    lr_schedule_policy_value: str
-    lr_end_value_policy_value: float
-    lr_decay_policy_value: float
-    optimizer_policy_value: str
+    lr_policyvalue: float
+    lr_schedule_policyvalue: str
+    lr_end_value_policyvalue: float
+    lr_decay_policyvalue: float
+    optimizer_policyvalue: str
     discount_factor: float
     clip_parameter: float
     entropy_coefficient: float
@@ -39,11 +39,11 @@ class PPOConfig(Protocol):
 
 
 def get_config(
-    lr_policy_value: float = 2.5e-4,
-    lr_schedule_policy_value: str = "linear",
-    lr_end_value_policy_value: float = 0.0,
-    lr_decay_policy_value: float = 0.99,
-    optimizer_policy_value: str = "adam",
+    lr_policyvalue: float = 2.5e-4,
+    lr_schedule_policyvalue: str = "linear",
+    lr_end_value_policyvalue: float = 0.0,
+    lr_decay_policyvalue: float = 0.99,
+    optimizer_policyvalue: str = "adam",
     discount_factor: float = 0.99,
     clip_parameter: float = 0.1,
     entropy_coefficient: float = 0.01,
@@ -64,11 +64,11 @@ def get_config(
     Also serves as a template to manually create sets of PPO parameters.
 
     Args:
-        lr_policy_value: The learning rate for the shared policy-value optimizer.
-        lr_schedule_policy_value: The learning rate schedule type.
-        lr_end_value_policy_value: The end value for the learning rate schedule.
-        lr_decay_policy_value: The decay rate for the learning rate schedule.
-        optimizer_policy_value: The optimizer to use for training.
+        lr_policyvalue: The learning rate for the shared policy-value optimizer.
+        lr_schedule_policyvalue: The learning rate schedule type.
+        lr_end_value_policyvalue: The end value for the learning rate schedule.
+        lr_decay_policyvalue: The decay rate for the learning rate schedule.
+        optimizer_policyvalue: The optimizer to use for training.
         discount_factor: The discount factor for future rewards (gamma).
         clip_parameter: The clipping parameter for the PPO surrogate objective.
         entropy_coefficient: The coefficient for the entropy term in the loss.
@@ -91,23 +91,23 @@ def get_config(
             f"Batch size {batch_size} cannot be larger than total "
             f"collected steps {n_actors * n_actor_steps}."
         )
-    if optimizer_policy_value.lower() not in ("adam", "sgd"):
+    if optimizer_policyvalue.lower() not in ("adam", "sgd"):
         raise ValueError(
             f"Unsupported optimizer, expected 'adam' or 'sgd'; "
-            f"received: {optimizer_policy_value}"
+            f"received: {optimizer_policyvalue}"
         )
-    if lr_schedule_policy_value.lower() not in ("linear", "exponential"):
+    if lr_schedule_policyvalue.lower() not in ("linear", "exponential"):
         raise ValueError(
             f"Unsupported learning rate schedule, expected 'linear' or "
-            f"'exponential'; received {lr_schedule_policy_value}"
+            f"'exponential'; received {lr_schedule_policyvalue}"
         )
     config = make_config(
         {
-            "lr_policy_value": lr_policy_value,
-            "lr_schedule_policy_value": lr_schedule_policy_value.lower(),
-            "lr_end_value_policy_value": lr_end_value_policy_value,
-            "lr_decay_policy_value": lr_decay_policy_value,
-            "optimizer_policy_value": optimizer_policy_value.lower(),
+            "lr_policyvalue": lr_policyvalue,
+            "lr_schedule_policyvalue": lr_schedule_policyvalue.lower(),
+            "lr_end_value_policyvalue": lr_end_value_policyvalue,
+            "lr_decay_policyvalue": lr_decay_policyvalue,
+            "optimizer_policyvalue": optimizer_policyvalue.lower(),
             "discount_factor": discount_factor,
             "clip_parameter": clip_parameter,
             "entropy_coefficient": entropy_coefficient,

@@ -14,32 +14,32 @@ if TYPE_CHECKING:
 
 
 def get_optimizer(config: PPOConfig) -> optax.GradientTransformation:
-    if config.optimizer_policy_value == "adam":
+    if config.optimizer_policyvalue == "adam":
         optimizer = optax.adam
-    elif config.optimizer_policy_value == "sgd":
+    elif config.optimizer_policyvalue == "sgd":
         optimizer = optax.sgd
     else:
         raise ValueError(
             f"Unsupported optimizer, expected 'adam' or 'sgd'; "
-            f"received: {config.optimizer_policy_value}"
+            f"received: {config.optimizer_policyvalue}"
         )
-    if config.lr_schedule_policy_value == "linear":
+    if config.lr_schedule_policyvalue == "linear":
         lr_schedule = optax.linear_schedule(
-            init_value=config.lr_policy_value,
-            end_value=config.lr_end_value_policy_value,
+            init_value=config.lr_policyvalue,
+            end_value=config.lr_end_value_policyvalue,
             transition_steps=(config.num_epochs * config.max_training_loops),
         )
-    elif config.lr_schedule_policy_value == "exponential":
+    elif config.lr_schedule_policyvalue == "exponential":
         lr_schedule = optax.exponential_decay(
-            init_value=config.lr_policy_value,
+            init_value=config.lr_policyvalue,
             transition_steps=config.num_epochs * config.max_training_loops,
-            decay_rate=config.lr_decay_policy_value,
-            end_value=config.lr_end_value_policy_value,
+            decay_rate=config.lr_decay_policyvalue,
+            end_value=config.lr_end_value_policyvalue,
         )
     else:
         raise ValueError(
             f"Unsupported learning rate schedule, expected 'linear' or "
-            f"'exponential'; received {config.lr_schedule_policy_value}"
+            f"'exponential'; received {config.lr_schedule_policyvalue}"
         )
     return optimizer(learning_rate=lr_schedule)
 
