@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from flax import nnx
 import gymnasium as gym
-import optax
 
 from scs.data_logging import DataLogger
-from scs.nn_modules import NNTrainingState
+from scs.nn_modules import (
+    NNTrainingState,
+    get_optimizer,
+)
 from scs.ppo import train_agent
 from scs.ppo.defaults import (
     get_config,
 )
-from scs.ppo.models import (
-    PolicyValue,
-)
+from scs.ppo.models import PolicyValue
 
 ############################################################################
 # Hyperparameters
@@ -59,39 +59,10 @@ envs.reset(seed=seed)
 
 # Create the model
 model = PolicyValue(rngs=rngs)
-
-# Define which parameters belong to policy vs value
-policy_param_names = {
-    "policy_linear_1",
-    "policy_layernorm_1",
-    "policy_linear_2",
-    "policy_layernorm_2",
-    "policy_mean",
-    "policy_log_std",
-}
-
-
-# Label function for parameter partitioning
-def param_labels(path, _):
-    param_name = path[0] if isinstance(path, tuple) else path
-    return "policy" if param_name in policy_param_names else "value"
-
-
-# Create multi-transform optimizer with different learning rates
-# ppo_lr_adam: 1.7e-4 for policy
-# val_lr: 4e-4 for value
-optimizer = optax.multi_transform(
-    transforms={
-        "policy": optax.adam(learning_rate=1.7e-4),
-        "value": optax.adam(learning_rate=4e-4),
-    },
-    param_labels=param_labels,
-)
-
 train_state = NNTrainingState.create(
     model_def=nnx.graphdef(model),
     model_state=nnx.state(model, nnx.Param),
-    optimizer=optimizer,
+    optimizer=get_optimizer(agent_config),
 )
 
 train_state, envs, losses, rewards = train_agent(

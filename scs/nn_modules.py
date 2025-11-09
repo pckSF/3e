@@ -1,11 +1,47 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from flax import (
     nnx,
     struct,
 )
 import jax
 import optax
+
+if TYPE_CHECKING:
+    from scs.ppo.defaults import PPOConfig
+
+
+def get_optimizer(config: PPOConfig) -> optax.GradientTransformation:
+    if config.optimizer == "adam":
+        optimizer = optax.adam
+    elif config.optimizer == "sgd":
+        optimizer = optax.sgd
+    else:
+        raise ValueError(
+            f"Unsupported optimizer, expected 'adam' or 'sgd'; "
+            f"received: {config.optimizer}"
+        )
+    if config.lr_schedule == "linear":
+        lr_schedule = optax.linear_schedule(
+            init_value=config.learning_rate,
+            end_value=config.learning_rate_end_value,
+            transition_steps=(config.num_epochs * config.max_training_loops),
+        )
+    elif config.lr_schedule == "exponential":
+        lr_schedule = optax.exponential_decay(
+            init_value=config.learning_rate,
+            transition_steps=config.num_epochs * config.max_training_loops,
+            decay_rate=config.learning_rate_decay,
+            end_value=config.learning_rate_end_value,
+        )
+    else:
+        raise ValueError(
+            f"Unsupported learning rate schedule, expected 'linear' or "
+            f"'exponential'; received {config.lr_schedule}"
+        )
+    return optimizer(learning_rate=lr_schedule)
 
 
 class NNTrainingState(struct.PyTreeNode):
