@@ -8,7 +8,7 @@ from typing import (
 from scs.configuration import make_config
 
 
-class PPOConfig(Protocol):
+class SACConfig(Protocol):
     """Defines the structure of a PPO configuration object for static analysis.
 
     This protocol ensures that any configuration object used with the PPO agent
@@ -57,7 +57,7 @@ def get_config(
     evaluation_frequency: int = 25,
     normalize_advantages: bool = False,
     max_training_loops: int = 10000,
-) -> PPOConfig:
+) -> SACConfig:
     """Generates the default configuration for the PPO agent.
 
     This function provides a base configuration with sensible defaults.
@@ -122,4 +122,4 @@ def get_config(
             "max_training_loops": max_training_loops,
         }
     )
-    return cast("PPOConfig", config)
+    return cast("SACConfig", config)

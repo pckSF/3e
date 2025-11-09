@@ -121,10 +121,6 @@ class PolicyValue(nnx.Module):
             num_features=128,
             rngs=rngs,
         )
-        self.mean_layernorm_1: nnx.LayerNorm = nnx.LayerNorm(
-            num_features=128,
-            rngs=rngs,
-        )
         self.policy_mean: nnx.Linear = nnx.Linear(
             in_features=128,
             out_features=3,
