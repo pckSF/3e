@@ -65,12 +65,14 @@ def get_config(
 
     Args:
         lr_policy: The learning rate for the policy optimizer.
-        lr_schedule_policy: The learning rate schedule type for the policy.
+        lr_schedule_policy: The learning rate schedule type for the policy
+            ('constant', 'linear', or 'exponential').
         lr_end_value_policy: The end value for the policy learning rate schedule.
         lr_decay_policy: The decay rate for the policy learning rate schedule.
         optimizer_policy: The optimizer to use for policy training.
         lr_qvalue: The learning rate for the Q-value optimizer.
-        lr_schedule_qvalue: The learning rate schedule type for the Q-value function.
+        lr_schedule_qvalue: The learning rate schedule type for the Q-value function
+            ('constant', 'linear', or 'exponential').
         lr_end_value_qvalue: The end value for the Q-value learning rate schedule.
         lr_decay_qvalue: The decay rate for the Q-value learning rate schedule.
         optimizer_qvalue: The optimizer to use for Q-value function training.
@@ -91,25 +93,27 @@ def get_config(
             f"Batch size {batch_size} cannot be larger than total "
             f"collected steps {n_actors * n_actor_steps}."
         )
-    if optimizer_policy.lower() not in ("adam", "sgd"):
+    if optimizer_policy.lower() not in {"adam", "sgd"}:
         raise ValueError(
             f"Unsupported policy optimizer, expected 'adam' or 'sgd'; "
             f"received: {optimizer_policy}"
         )
-    if optimizer_qvalue.lower() not in ("adam", "sgd"):
+    if optimizer_qvalue.lower() not in {"adam", "sgd"}:
         raise ValueError(
             f"Unsupported Q-value optimizer, expected 'adam' or 'sgd'; "
             f"received: {optimizer_qvalue}"
         )
-    if lr_schedule_policy.lower() not in ("linear", "exponential"):
+    if lr_schedule_policy.lower() not in {"constant", "linear", "exponential"}:
         raise ValueError(
-            f"Unsupported policy learning rate schedule, expected 'linear' or "
-            f"'exponential'; received {lr_schedule_policy}"
+            f"Unsupported policy learning rate schedule, "
+            f"expected 'constant', 'linear', or 'exponential'; "
+            f"received {lr_schedule_policy}"
         )
-    if lr_schedule_qvalue.lower() not in ("linear", "exponential"):
+    if lr_schedule_qvalue.lower() not in {"constant", "linear", "exponential"}:
         raise ValueError(
-            f"Unsupported Q-value learning rate schedule, expected 'linear' or "
-            f"'exponential'; received {lr_schedule_qvalue}"
+            f"Unsupported Q-value learning rate schedule, "
+            f"expected 'constant', 'linear', or 'exponential'; "
+            f"received {lr_schedule_qvalue}"
         )
     config = make_config(
         {

@@ -65,7 +65,8 @@ def get_config(
 
     Args:
         lr_policyvalue: The learning rate for the shared policy-value optimizer.
-        lr_schedule_policyvalue: The learning rate schedule type.
+        lr_schedule_policyvalue: The learning rate schedule type
+            ('constant', 'linear', or 'exponential').
         lr_end_value_policyvalue: The end value for the learning rate schedule.
         lr_decay_policyvalue: The decay rate for the learning rate schedule.
         optimizer_policyvalue: The optimizer to use for training.
@@ -91,15 +92,16 @@ def get_config(
             f"Batch size {batch_size} cannot be larger than total "
             f"collected steps {n_actors * n_actor_steps}."
         )
-    if optimizer_policyvalue.lower() not in ("adam", "sgd"):
+    if optimizer_policyvalue.lower() not in {"adam", "sgd"}:
         raise ValueError(
             f"Unsupported optimizer, expected 'adam' or 'sgd'; "
             f"received: {optimizer_policyvalue}"
         )
-    if lr_schedule_policyvalue.lower() not in ("linear", "exponential"):
+    if lr_schedule_policyvalue.lower() not in {"constant", "linear", "exponential"}:
         raise ValueError(
-            f"Unsupported learning rate schedule, expected 'linear' or "
-            f"'exponential'; received {lr_schedule_policyvalue}"
+            f"Unsupported learning rate schedule, "
+            f"expected 'constant', 'linear', or 'exponential'; "
+            f"received {lr_schedule_policyvalue}"
         )
     config = make_config(
         {

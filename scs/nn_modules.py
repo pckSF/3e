@@ -47,7 +47,9 @@ def get_optimizer(
             f"received: {optimizer_name}"
         )
 
-    if lr_schedule_type == "linear":
+    if lr_schedule_type == "constant":
+        lr_schedule = optax.constant_schedule(value=lr_init)
+    elif lr_schedule_type == "linear":
         lr_schedule = optax.linear_schedule(
             init_value=lr_init,
             end_value=lr_end,
@@ -62,7 +64,7 @@ def get_optimizer(
         )
     else:
         raise ValueError(
-            f"Unsupported learning rate schedule, expected 'linear' or "
+            f"Unsupported learning rate schedule, expected 'constant', 'linear' or "
             f"'exponential'; received {lr_schedule_type}"
         )
     return optimizer(learning_rate=lr_schedule)
