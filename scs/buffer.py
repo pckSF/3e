@@ -7,7 +7,13 @@ from scs.data import TrajectoryData
 
 
 class ReplayBuffer:
+    """Circular replay buffer for off-policy RL algorithms.
+
+    Once full, old transitions are overwritten in FIFO order.
+    """
+
     def __init__(self, max_size: int, state_dim: int, action_dim: int) -> None:
+        """Initializes replay buffer with pre-allocated arrays."""
         self.max_size: int = max_size
         self.current_index: int = 0
         self.available_samples: int = 0
@@ -26,6 +32,7 @@ class ReplayBuffer:
         next_state: np.ndarray,
         terminal: bool,
     ) -> None:
+        """Adds a single transition to the buffer."""
         self.states[self.current_index] = state
         self.actions[self.current_index] = action
         self.rewards[self.current_index] = reward
@@ -50,6 +57,19 @@ class ReplayBuffer:
         next_states: np.ndarray,
         terminals: np.ndarray,
     ) -> None:
+        """Adds a sequence of transitions, handling wraparound if necessary.
+
+        When the sequence insert would exceed buffer capacity, it's split into
+        two chunks: one filling to the end of the buffer, and the remainder
+        being inserted at the beginning of the buffer arryays.
+
+        Args:
+            states: Batch of observations (batch_size, state_dim).
+            actions: Batch of actions (batch_size, action_dim).
+            rewards: Batch of scalar rewards (batch_size,).
+            next_states: Batch of next observations (batch_size, state_dim).
+            terminals: Batch of episode termination flags (batch_size,).
+        """
         n = states.shape[0]
         if n > self.max_size:
             raise ValueError(
@@ -70,7 +90,7 @@ class ReplayBuffer:
             ]
             self.terminals[self.current_index : self.max_size] = terminals[:first_chunk]
 
-            # Insert remaining chunk at the start of the buffer
+            # Insert remaining transitions at the start of the buffer
             overflow = end_idx - self.max_size
             self.states[:overflow] = states[first_chunk:]
             self.actions[:overflow] = actions[first_chunk:]
@@ -99,6 +119,7 @@ class ReplayBuffer:
             self.available_samples = self.current_index
 
     def to_trajectory_data(self) -> TrajectoryData:
+        """Converts entire buffer contents to TrajectoryData format."""
         return TrajectoryData(
             states=jnp.asarray(self.states, dtype=jnp.float32),
             actions=jnp.asarray(self.actions, dtype=jnp.float32),
@@ -114,6 +135,11 @@ class ReplayBuffer:
         )
 
     def sample_batch(self, indices: np.ndarray) -> TrajectoryData:
+        """Samples batch or n batches by index.
+
+        Args:
+            indices: Array of indices to sample (batch_size,) or (batch_size, n).
+        """
         return TrajectoryData(
             states=jnp.asarray(self.states[indices], dtype=jnp.float32),
             actions=jnp.asarray(self.actions[indices], dtype=jnp.float32),
