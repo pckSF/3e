@@ -55,7 +55,7 @@ class QValue(nnx.Module):
         """Computes qvalue estimates for states-action pairs.
 
         Returns:
-            - The state+action qvalue estimates.
+            - The state-action pair qvalue estimates.
         """
         v = nnx.relu(self.layernorm_1(self.linear_1(x)))
         v = nnx.relu(self.layernorm_2(self.linear_2(v)))
@@ -67,7 +67,7 @@ class QValue(nnx.Module):
 class Policy(nnx.Module):
     def __init__(self, rngs: nnx.Rngs) -> None:
         self.linear_1: nnx.Linear = nnx.Linear(
-            in_features=11,
+            in_features=11 + 3,
             out_features=256,
             kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
