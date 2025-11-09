@@ -18,11 +18,11 @@ from scs.ppo.models import PolicyValue
 # Hyperparameters
 ############################################################################
 agent_config = get_config(
-    learning_rate=1.5e-4,
-    learning_rate_end_value=0.0,
-    learning_rate_decay=0.9995,
-    optimizer="adam",
-    lr_schedule="linear",
+    lr_policy_value=1.5e-4,
+    lr_schedule_policy_value="linear",
+    lr_end_value_policy_value=0.0,
+    lr_decay_policy_value=0.9995,
+    optimizer_policy_value="adam",
     discount_factor=0.99,
     clip_parameter=0.2,
     entropy_coefficient=0.01,

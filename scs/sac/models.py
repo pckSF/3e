@@ -51,7 +51,7 @@ class QValue(nnx.Module):
             rngs=rngs,
         )
 
-    def __call__(self, x: jax.Array) -> tuple[jax.Array, jax.Array, jax.Array]:
+    def __call__(self, x: jax.Array) -> jax.Array:
         """Computes qvalue estimates for states-action pairs.
 
         Returns:
@@ -114,7 +114,7 @@ class Policy(nnx.Module):
             rngs=rngs,
         )
 
-    def __call__(self, x: jax.Array) -> tuple[jax.Array, jax.Array, jax.Array]:
+    def __call__(self, x: jax.Array) -> tuple[jax.Array, jax.Array]:
         """Computes action distribution parameters for states.
 
         Returns:
