@@ -6,45 +6,34 @@ from typing import (
 
 from flax import nnx
 import gymnasium as gym
+import jax
 import jax.numpy as jnp
 import numpy as np
 
-from scs.ppo.agent import actor_action as ppo_actor_action
-from scs.ppo.models import PolicyValue
-from scs.sac.agent import actor_action as sac_actor_action
-from scs.sac.models import Policy
-
 if TYPE_CHECKING:
-    import jax
-
     from scs.data_logging import DataLogger
     from scs.ppo.defaults import PPOConfig
+    from scs.ppo.models import PolicyValue
     from scs.sac.defaults import SACConfig
+    from scs.sac.models import Policy
 
 
-@nnx.jit(static_argnums=(0,))
+@nnx.jit
 def actor_action(
     model_policy: Policy | PolicyValue,
     states: jax.Array,
     key: jax.Array,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
-    if isinstance(model_policy, Policy):
-        return sac_actor_action(
-            model_policy,
-            states,
-            key,
-        )
-    elif isinstance(model_policy, PolicyValue):
-        return ppo_actor_action(
-            model_policy,
-            states,
-            key,
-        )
-    else:
-        raise ValueError(
-            f"Model must be either 'Policy' or 'PolicyValue'; "
-            f"received: {type(model_policy)}"
-        )
+    """Samples an action from the actor's policy.
+
+    This function computes the action distribution from the actor model and
+    samples an action.
+    """
+    a_means, a_log_stds = model_policy(states)[:2]
+    actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
+        key, shape=a_means.shape
+    )
+    return actions, a_means, a_log_stds
 
 
 def evaluation_trajectory(
