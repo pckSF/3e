@@ -16,11 +16,9 @@ from scs.data import (
     stack_agent_advantages,
     stack_agent_trajectories,
 )
+from scs.evaluation import evaluation_trajectory
 from scs.ppo.agent import train_step
-from scs.ppo.rollouts import (
-    collect_trajectories,
-    evaluation_trajectory,
-)
+from scs.ppo.rollouts import collect_trajectories
 from scs.utils import get_train_batch_indices
 
 if TYPE_CHECKING:

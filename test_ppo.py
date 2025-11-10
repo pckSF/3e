@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+
+os.environ["JAX_PLATFORMS"] = "cpu"
+
 from flax import nnx
 import gymnasium as gym
 
@@ -50,9 +54,18 @@ rngs = nnx.Rngs(
     sample=seed + 4,
     trajectory=seed + 5,
 )
+
+
 # Setup vectorized environment
+def make_env():
+    env = gym.make("Hopper-v5")
+    env = gym.wrappers.NormalizeObservation(env)
+    env = gym.wrappers.NormalizeReward(env)
+    return env
+
+
 envs = gym.vector.SyncVectorEnv(
-    [lambda: gym.make("Hopper-v5") for _ in range(agent_config.n_actors)],
+    [make_env for _ in range(agent_config.n_actors)],
     autoreset_mode=gym.vector.AutoresetMode.DISABLED,
 )
 envs.reset(seed=seed)
