@@ -16,10 +16,7 @@ from scs.data import (
     stack_agent_advantages,
     stack_agent_trajectories,
 )
-from scs.evaluation import (
-    evaluation_trajectory,
-    render_trajectory,
-)
+from scs.evaluation import evaluation_trajectory
 from scs.ppo.agent import train_step
 from scs.ppo.rollouts import collect_trajectories
 from scs.utils import get_train_batch_indices
@@ -138,12 +135,6 @@ def train_agent(
             data_logger.save_checkpoint(
                 filename="checkpoint",
                 data=train_state.model_state,
-            )
-            render_trajectory(
-                model=nnx.merge(train_state.model_def, train_state.model_state),
-                config=config,
-                data_logger=data_logger,
-                rng=rngs,
             )
         data_logger.save_csv_row("losses", loss)
         ppo_value, value_loss, entropy, kl_estimate = loss_components[0]
