@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 class QValue(nnx.Module):
     def __init__(self, rngs: nnx.Rngs) -> None:
         self.linear_1: nnx.Linear = nnx.Linear(
-            in_features=11,
+            in_features=11 + 3,
             out_features=256,
             kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
@@ -69,7 +69,7 @@ class QValue(nnx.Module):
 class Policy(nnx.Module):
     def __init__(self, rngs: nnx.Rngs) -> None:
         self.linear_1: nnx.Linear = nnx.Linear(
-            in_features=11 + 3,
+            in_features=11,
             out_features=256,
             kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
