@@ -37,6 +37,7 @@ class SACConfig(Protocol):
     evaluation_frequency: int
     max_training_loops: int
     replay_buffer_size: int
+    min_buffer_steps: int
     target_network_update_weight: float
 
     def to_dict(self) -> dict: ...
@@ -64,6 +65,7 @@ def get_config(
     evaluation_frequency: int = 25,
     max_training_loops: int = 1000000,
     replay_buffer_size: int = 100000,
+    min_buffer_steps: int = 5000,
     target_network_update_weight: float = 0.005,
 ) -> SACConfig:
     """Generates the default configuration for the SAC agent.
@@ -95,6 +97,8 @@ def get_config(
         evaluation_frequency: Frequency of running policy evaluations.
         max_training_loops: The maximum number of training loops to perform.
         replay_buffer_size: The maximum size of the replay buffer.
+        min_buffer_steps: The minimum number of steps in the replay buffer
+            before training.
         target_network_update_weight: The weight for soft updates of the target network.
 
     Returns:
@@ -150,6 +154,7 @@ def get_config(
             "evaluation_frequency": evaluation_frequency,
             "max_training_loops": max_training_loops,
             "replay_buffer_size": replay_buffer_size,
+            "min_buffer_steps": min_buffer_steps,
             "target_network_update_weight": target_network_update_weight,
         }
     )

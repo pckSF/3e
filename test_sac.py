@@ -42,7 +42,8 @@ agent_config = get_config(
     save_checkpoints=500,
     evaluation_frequency=25,
     max_training_loops=1000000,
-    replay_buffer_size=10000,
+    replay_buffer_size=200000,
+    min_buffer_steps=5000,
     target_network_update_weight=0.005,
 )
 seed: int = 0

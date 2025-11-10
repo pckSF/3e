@@ -46,7 +46,7 @@ class QValue(nnx.Module):
         )
         self.qvalue: nnx.Linear = nnx.Linear(
             in_features=128,
-            out_features=3,
+            out_features=1,
             kernel_init=nnx.initializers.orthogonal(),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,

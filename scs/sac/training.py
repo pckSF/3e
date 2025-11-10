@@ -122,7 +122,7 @@ def train_agent(
     )
     policy_loss_history: list[float] = []
     mean_q_loss_history: list[float] = []
-    eval_history: list[float] = []
+    eval_history: list[float] = [0.0]
     eval_envs: gym.vector.SyncVectorEnv = deepcopy(envs)
     progress_bar: tqdm = tqdm(range(max_training_loops), desc="Training Loops")
     for training_loop in progress_bar:
@@ -136,6 +136,8 @@ def train_agent(
         if replay_buffer.full:
             max_index = replay_buffer.max_size
         else:
+            if replay_buffer.current_index < config.min_buffer_steps:
+                continue
             max_index = replay_buffer.current_index
         batch_indices = get_train_batch_indices(
             n_batches=config.num_epochs,

@@ -57,8 +57,8 @@ def compute_q_target(
     action_log_densities = norm.logpdf(
         actions, loc=a_means, scale=jnp.exp(a_log_stds)
     ).sum(axis=-1)
-    q1_values = model_q1_target(batch.next_states, actions)
-    q2_values = model_q2_target(batch.next_states, actions)
+    q1_values = jnp.squeeze(model_q1_target(batch.next_states, actions))
+    q2_values = jnp.squeeze(model_q2_target(batch.next_states, actions))
     min_q_values = jnp.minimum(q1_values, q2_values)
     next_values = min_q_values - config.entropy_coefficient * action_log_densities
     next_values *= 1.0 - batch.terminals
@@ -72,7 +72,7 @@ def qvalue_loss_fn(
     target_qvalue: jax.Array,
 ) -> jax.Array:
     """Mean squared error between predicted and target Q-values."""
-    q_values = model_qvalue(batch.states, batch.actions)
+    q_values = jnp.squeeze(model_qvalue(batch.states, batch.actions))
     return jnp.mean((target_qvalue - q_values) ** 2)
 
 
@@ -98,8 +98,8 @@ def policy_loss_fn(
     action_log_densities = norm.logpdf(
         actions, loc=a_means, scale=jnp.exp(a_log_stds)
     ).sum(axis=-1)
-    q1_values = model_q1(batch.states, actions)
-    q2_values = model_q2(batch.states, actions)
+    q1_values = jnp.squeeze(model_q1(batch.states, actions))
+    q2_values = jnp.squeeze(model_q2(batch.states, actions))
     min_q_values = jnp.minimum(q1_values, q2_values)
     policy_value = jnp.mean(
         min_q_values - config.entropy_coefficient * action_log_densities
@@ -145,21 +145,21 @@ def train_step(
     q_targets = compute_q_target(
         policy, model_q1_target, model_q2_target, batch, config, key_qvalue
     )
-    q_grad_fn = jax.value_and_grad(qvalue_loss_fn, argnums=0)
-    policy_grad_fn = jax.value_and_grad(policy_loss_fn, argnums=0)
+    q_grad_fn = nnx.value_and_grad(qvalue_loss_fn, argnums=0)
+    policy_grad_fn = nnx.value_and_grad(policy_loss_fn, argnums=0)
 
     loss_q1, grads_q1 = q_grad_fn(model_q1, batch, q_targets)
-    train_state_q1 = train_state_q1.apply_gradients(grads=grads_q1)
+    train_state_q1 = train_state_q1.apply_gradients(grads_q1)
     model_q1 = nnx.merge(train_state_q1.model_def, train_state_q1.model_state)
 
     loss_q2, grads_q2 = q_grad_fn(model_q2, batch, q_targets)
-    train_state_q2 = train_state_q2.apply_gradients(grads=grads_q2)
+    train_state_q2 = train_state_q2.apply_gradients(grads_q2)
     model_q2 = nnx.merge(train_state_q2.model_def, train_state_q2.model_state)
 
     loss_policy, grads_policy = policy_grad_fn(
         policy, model_q1, model_q2, batch, config, key_policy
     )
-    train_state_policy = train_state_policy.apply_gradients(grads=grads_policy)
+    train_state_policy = train_state_policy.apply_gradients(grads_policy)
 
     return (train_state_policy, train_state_q1, train_state_q2), (
         loss_policy,
