@@ -6,40 +6,49 @@ import gymnasium as gym
 from scs.data_logging import DataLogger
 from scs.nn_modules import (
     NNTrainingState,
+    NNTrainingStateSoftTarget,
     get_optimizer,
 )
-from scs.ppo import train_agent
-from scs.ppo.defaults import (
+from scs.sac import train_agent
+from scs.sac.defaults import (
     get_config,
 )
-from scs.ppo.models import PolicyValue
+from scs.sac.models import (
+    Policy,
+    QValue,
+)
 
 ############################################################################
 # Hyperparameters
 ############################################################################
 agent_config = get_config(
-    lr_policyvalue=1.5e-4,
-    lr_schedule_policyvalue="linear",
-    lr_end_value_policyvalue=0.0,
-    lr_decay_policyvalue=0.9995,
-    optimizer_policyvalue="adam",
+    env_name="Hopper-v5",
+    lr_policy=3e-4,
+    lr_schedule_policy="linear",
+    lr_end_value_policy=0.0,
+    lr_decay_policy=0.99,
+    optimizer_policy="adam",
+    lr_qvalue=3e-4,
+    lr_schedule_qvalue="linear",
+    lr_end_value_qvalue=0.0,
+    lr_decay_qvalue=0.99,
+    optimizer_qvalue="adam",
     discount_factor=0.99,
-    clip_parameter=0.2,
-    entropy_coefficient=0.01,
-    gae_lambda=0.95,
-    n_actors=20,
-    n_actor_steps=256,
-    batch_size=512,
-    num_epochs=10,
-    value_loss_coefficient=0.2,
+    entropy_coefficient=0.2,
+    n_actors=10,
+    n_actor_steps=128,
+    batch_size=256,
+    num_epochs=3,
+    save_checkpoints=500,
     evaluation_frequency=25,
-    normalize_advantages=True,
-    max_training_loops=10000,
+    max_training_loops=1000000,
+    replay_buffer_size=10000,
+    target_network_update_weight=0.005,
 )
 seed: int = 0
 ############################################################################
 # Setup logging
-logger = DataLogger(log_dir="logs/ppo_hopper")
+logger = DataLogger(log_dir="logs/sac_hopper")
 
 # Setup RNG
 rngs = nnx.Rngs(
@@ -57,16 +66,38 @@ envs = gym.vector.SyncVectorEnv(
 )
 envs.reset(seed=seed)
 
-# Create the model
-model = PolicyValue(rngs=rngs)
-train_state = NNTrainingState.create(
-    model_def=nnx.graphdef(model),
-    model_state=nnx.state(model, nnx.Param),
-    optimizer=get_optimizer(agent_config, "policyvalue"),
+# Create the models
+model_policy = Policy(rngs=rngs)
+train_state_policy = NNTrainingState.create(
+    model_def=nnx.graphdef(model_policy),
+    model_state=nnx.state(model_policy, nnx.Param),
+    optimizer=get_optimizer(agent_config, model_policy),
+)
+model_q1 = QValue(rngs=rngs)
+train_state_q1 = NNTrainingStateSoftTarget.create(
+    model_def=nnx.graphdef(model_q1),
+    model_state=nnx.state(model_q1, nnx.Param),
+    optimizer=get_optimizer(agent_config, model_q1),
+    tau=agent_config.target_network_update_weight,
+)
+model_q2 = QValue(rngs=rngs)
+train_state_q2 = NNTrainingStateSoftTarget.create(
+    model_def=nnx.graphdef(model_q2),
+    model_state=nnx.state(model_q2, nnx.Param),
+    optimizer=get_optimizer(agent_config, model_q2),
+    tau=agent_config.target_network_update_weight,
 )
 
-train_state, envs, losses, rewards = train_agent(
-    train_state=train_state,
+(
+    (train_state_policy, train_state_q1, train_state_q2),
+    envs,
+    losses_policy,
+    losses_q,
+    rewards,
+) = train_agent(
+    train_state_policy=train_state_policy,
+    train_state_q1=train_state_q1,
+    train_state_q2=train_state_q2,
     envs=envs,
     config=agent_config,
     data_logger=logger,

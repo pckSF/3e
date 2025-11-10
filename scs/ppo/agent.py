@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 def actor_action(
     model: PolicyValue,
     states: jax.Array,
-    rng: nnx.Rngs,
+    key: jax.Array,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Samples an action from the actor's policy.
 
@@ -35,7 +35,7 @@ def actor_action(
     """
     a_means, a_log_stds, _values = model(states)
     actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
-        rng.action_select(), shape=a_means.shape
+        key, shape=a_means.shape
     )
     return actions, a_means, a_log_stds
 

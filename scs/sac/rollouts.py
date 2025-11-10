@@ -7,7 +7,7 @@ from typing import (
 import jax.numpy as jnp
 import numpy as np
 
-from scs.ppo.agent import actor_action
+from scs.sac.agent import actor_action
 
 if TYPE_CHECKING:
     from flax import nnx
@@ -23,11 +23,11 @@ def sample_transition_to_buffer(
     envs: gym.vector.SyncVectorEnv,
     replay_buffer: ReplayBuffer,
     rngs: nnx.Rngs,
-) -> tuple[np.ndarray | ReplayBuffer]:
+) -> tuple[np.ndarray, ReplayBuffer]:
     action, _a_mean, _a_log_std = actor_action(
         policy_model,
         jnp.asarray(state, dtype=jnp.float32),
-        rngs,
+        rngs.action_select(),
     )
     next_state, reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
         np.tanh(np.asarray(action))

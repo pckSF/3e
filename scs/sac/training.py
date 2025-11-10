@@ -73,6 +73,7 @@ def train_agent(
     gym.vector.SyncVectorEnv,
     jax.Array,
     jax.Array,
+    jax.Array,
 ]:
     """Trains a SAC agent over a specified number of training loops.
 
@@ -97,7 +98,7 @@ def train_agent(
     data_logger.store_metadata("config", config.to_dict())
     replay_buffer: ReplayBuffer = ReplayBuffer(
         max_size=config.replay_buffer_size,
-        state_shape=11,
+        state_dim=11,
         action_dim=3,
     )
     state: np.ndarray = envs.reset()[0]
@@ -115,10 +116,10 @@ def train_agent(
             policy_model=policy_model,
             envs=envs,
             replay_buffer=replay_buffer,
-            rng=rngs,
+            rngs=rngs,
         )
         if replay_buffer.full:
-            max_index = replay_buffer.size
+            max_index = replay_buffer.max_size
         else:
             max_index = replay_buffer.current_index
         batch_indices = get_train_batch_indices(

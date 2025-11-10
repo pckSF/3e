@@ -4,20 +4,47 @@ from typing import (
     TYPE_CHECKING,
 )
 
+from flax import nnx
 import gymnasium as gym
 import jax.numpy as jnp
 import numpy as np
 
-from scs.ppo.agent import actor_action
+from scs.ppo.agent import actor_action as ppo_actor_action
+from scs.ppo.models import PolicyValue
+from scs.sac.agent import actor_action as sac_actor_action
+from scs.sac.models import Policy
 
 if TYPE_CHECKING:
-    from flax import nnx
+    import jax
 
     from scs.data_logging import DataLogger
     from scs.ppo.defaults import PPOConfig
-    from scs.ppo.models import PolicyValue
     from scs.sac.defaults import SACConfig
-    from scs.sac.models import Policy
+
+
+@nnx.jit(static_argnums=(0,))
+def actor_action(
+    model_policy: Policy | PolicyValue,
+    states: jax.Array,
+    key: jax.Array,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    if isinstance(model_policy, Policy):
+        return sac_actor_action(
+            model_policy,
+            states,
+            key,
+        )
+    elif isinstance(model_policy, PolicyValue):
+        return ppo_actor_action(
+            model_policy,
+            states,
+            key,
+        )
+    else:
+        raise ValueError(
+            f"Model must be either 'Policy' or 'PolicyValue'; "
+            f"received: {type(model_policy)}"
+        )
 
 
 def evaluation_trajectory(
@@ -51,7 +78,7 @@ def evaluation_trajectory(
         action, _a_mean, _a_log_std = actor_action(
             model,
             jnp.asarray(state, dtype=jnp.float32),
-            rng,
+            rng.action_select(),
         )
         state, step_reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
             np.tanh(np.asarray(action))
@@ -113,7 +140,7 @@ def render_trajectory(
         action, _a_mean, _a_log_std = actor_action(
             model,
             jnp.asarray(state, dtype=jnp.float32),
-            rng,
+            rng.action_select(),
         )
         state, step_reward, terminal, truncated, _info = env.step(
             np.tanh(np.asarray(action))

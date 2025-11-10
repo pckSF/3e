@@ -74,7 +74,7 @@ def collect_trajectories(
         action, a_mean, a_log_std = actor_action(
             model,
             jnp.asarray(state, dtype=jnp.float32),
-            rng,
+            rng.action_select(),
         )
         action_log_density = jax.jit(norm.logpdf)(
             action,

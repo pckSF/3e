@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 def actor_action(
     model_policy: Policy,
     states: jax.Array,
-    rng: nnx.Rngs,
+    key: jax.Array,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Samples an action from the actor's policy.
 
@@ -35,15 +35,15 @@ def actor_action(
     """
     a_means, a_log_stds = model_policy(states)
     actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
-        rng.action_select(), shape=a_means.shape
+        key, shape=a_means.shape
     )
     return actions, a_means, a_log_stds
 
 
 def compute_q_target(
     model_policy: Policy,
-    model_q1_target: Policy,
-    model_q2_target: Policy,
+    model_q1_target: QValue,
+    model_q2_target: QValue,
     batch: TrajectoryData,
     config: SACConfig,
     key: jax.Array,
@@ -58,7 +58,7 @@ def compute_q_target(
     ).sum(axis=-1)
     q1_values = model_q1_target(batch.next_states, actions)
     q2_values = model_q2_target(batch.next_states, actions)
-    min_q_values = jnp.minimum(q1_values, q2_values, axis=-1)
+    min_q_values = jnp.minimum(q1_values, q2_values)
     next_values = min_q_values - config.entropy_coefficient * action_log_densities
     next_values *= 1.0 - batch.terminals
     q_targets = batch.rewards + config.discount_factor * next_values
@@ -67,9 +67,11 @@ def compute_q_target(
 
 def qvalue_loss_fn(
     model_qvalue: QValue,
+    batch: TrajectoryData,
     target_qvalue: jax.Array,
 ) -> jax.Array:
-    return jnp.mean((target_qvalue - model_qvalue) ** 2)
+    q_values = model_qvalue(batch.states, batch.actions)
+    return jnp.mean((target_qvalue - q_values) ** 2)
 
 
 def policy_loss_fn(
@@ -90,7 +92,7 @@ def policy_loss_fn(
     ).sum(axis=-1)
     q1_values = model_q1(batch.states, actions)
     q2_values = model_q2(batch.states, actions)
-    min_q_values = jnp.minimum(q1_values, q2_values, axis=-1)
+    min_q_values = jnp.minimum(q1_values, q2_values)
     policy_value = jnp.mean(
         min_q_values - config.entropy_coefficient * action_log_densities
     )
@@ -123,7 +125,7 @@ def train_step(
         A tuple containing the updated training state and the loss for the batch.
     """
     train_state_policy, train_state_q1, train_state_q2 = train_states
-    batch, key_qvalue, key_policy = batch_and_keys
+    batch, (key_qvalue, key_policy) = batch_and_keys
     policy = nnx.merge(train_state_policy.model_def, train_state_policy.model_state)
     model_q1 = nnx.merge(train_state_q1.model_def, train_state_q1.model_state)
     model_q1_target = nnx.merge(
@@ -138,10 +140,10 @@ def train_step(
     q_targets = compute_q_target(
         policy, model_q1_target, model_q2_target, batch, config, key_qvalue
     )
-    loss_q1, grads_q1 = q_grad_fn(model_q1, q_targets)
+    loss_q1, grads_q1 = q_grad_fn(model_q1, batch, q_targets)
     train_state_q1 = train_state_q1.apply_gradients(grads=grads_q1)
     model_q1 = nnx.merge(train_state_q1.model_def, train_state_q1.model_state)
-    loss_q2, grads_q2 = q_grad_fn(model_q2, q_targets)
+    loss_q2, grads_q2 = q_grad_fn(model_q2, batch, q_targets)
     train_state_q2 = train_state_q2.apply_gradients(grads=grads_q2)
     model_q2 = nnx.merge(train_state_q2.model_def, train_state_q2.model_state)
 

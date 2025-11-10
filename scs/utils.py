@@ -10,30 +10,6 @@ if TYPE_CHECKING:
     import numpy as np
 
 
-def compare_states(
-    state1: jax.Array | np.ndarray,
-    state2: jax.Array | np.ndarray,
-    mask: jax.Array | np.ndarray | None = None,
-) -> bool:
-    """Compares two state arrays for equality."""
-    if mask is not None:
-        state1, state2 = state1[mask], state2[mask]
-    return bool(jnp.array_equal(state1, state2))
-
-
-def states_healthcheck(
-    state1: jax.Array | np.ndarray,
-    state2: jax.Array | np.ndarray,
-    mask: jax.Array | np.ndarray,
-) -> None:
-    if not compare_states(state1, state2, mask):
-        raise ValueError(
-            f"Relevant state arrays do not match!\n"
-            f"State 1: {state1[mask]}\n"
-            f"State 2: {state2[mask]}"
-        )
-
-
 @partial(jax.jit, static_argnums=(0, 1, 2, 3))
 def get_train_batch_indices(
     n_batches: int,
@@ -58,4 +34,28 @@ def get_train_batch_indices(
         return jax.lax.map(
             partial(jax.random.choice, a=indices, shape=(batch_size,), replace=False),
             keys,
+        )
+
+
+def compare_states(
+    state1: jax.Array | np.ndarray,
+    state2: jax.Array | np.ndarray,
+    mask: jax.Array | np.ndarray | None = None,
+) -> bool:
+    """Compares two state arrays for equality."""
+    if mask is not None:
+        state1, state2 = state1[mask], state2[mask]
+    return bool(jnp.array_equal(state1, state2))
+
+
+def states_healthcheck(
+    state1: jax.Array | np.ndarray,
+    state2: jax.Array | np.ndarray,
+    mask: jax.Array | np.ndarray,
+) -> None:
+    if not compare_states(state1, state2, mask):
+        raise ValueError(
+            f"Relevant state arrays do not match!\n"
+            f"State 1: {state1[mask]}\n"
+            f"State 2: {state2[mask]}"
         )

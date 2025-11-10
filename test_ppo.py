@@ -18,6 +18,7 @@ from scs.ppo.models import PolicyValue
 # Hyperparameters
 ############################################################################
 agent_config = get_config(
+    env_name="Hopper-v5",
     lr_policyvalue=1.5e-4,
     lr_schedule_policyvalue="linear",
     lr_end_value_policyvalue=0.0,

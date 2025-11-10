@@ -62,8 +62,8 @@ def get_config(
     num_epochs: int = 3,
     save_checkpoints: int = 500,
     evaluation_frequency: int = 25,
-    max_training_loops: int = 10000,
-    replay_buffer_size: int = 1000000,
+    max_training_loops: int = 1000000,
+    replay_buffer_size: int = 100000,
     target_network_update_weight: float = 0.005,
 ) -> SACConfig:
     """Generates the default configuration for the SAC agent.
