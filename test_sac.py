@@ -61,7 +61,7 @@ rngs = nnx.Rngs(
 )
 # Setup vectorized environment
 envs = gym.vector.SyncVectorEnv(
-    [lambda: gym.make("Hopper-v5") for _ in range(agent_config.n_actors)],
+    [lambda: gym.make(agent_config.env_name) for _ in range(agent_config.n_actors)],
     autoreset_mode=gym.vector.AutoresetMode.DISABLED,
 )
 envs.reset(seed=seed)

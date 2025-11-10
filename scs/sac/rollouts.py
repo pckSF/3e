@@ -24,6 +24,9 @@ def sample_transition_to_buffer(
     replay_buffer: ReplayBuffer,
     rngs: nnx.Rngs,
 ) -> tuple[np.ndarray, ReplayBuffer]:
+    """Collects a single transition and stores it in the replay buffer.
+    The next state is returned for continuing the episode.
+    """
     action, _a_mean, _a_log_std = actor_action(
         policy_model,
         jnp.asarray(state, dtype=jnp.float32),

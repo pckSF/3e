@@ -52,16 +52,8 @@ rngs = nnx.Rngs(
     trajectory=seed + 5,
 )
 
-
-# Setup vectorized environment
-def make_env():
-    env = gym.make("Hopper-v5")
-    env = gym.wrappers.NormalizeObservation(env)
-    return env
-
-
 envs = gym.vector.SyncVectorEnv(
-    [make_env for _ in range(agent_config.n_actors)],
+    [lambda: gym.make(agent_config.env_name) for _ in range(agent_config.n_actors)],
     autoreset_mode=gym.vector.AutoresetMode.DISABLED,
 )
 envs.reset(seed=seed)

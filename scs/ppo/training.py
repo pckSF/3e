@@ -106,7 +106,7 @@ def train_agent(
         config: The agent's configuration.
         data_logger: A logger for saving training data and model checkpoints.
         max_training_loops: The total number of training loops to execute.
-        rngs: A container for JAX random number generators.
+        rngs: A container for flax.nnx random number generators.
 
     Returns:
         A tuple containing the final training state, the environment, and arrays

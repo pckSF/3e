@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from scs.sac.defaults import SACConfig
 
 
-@partial(jax.jit, static_argnums=(2,))
+@partial(jax.jit, static_argnums=(4,))
 def update_on_batches(
     train_state_policy: NNTrainingState,
     train_state_q1: NNTrainingStateSoftTarget,
@@ -40,6 +40,19 @@ def update_on_batches(
     tuple[NNTrainingState, NNTrainingStateSoftTarget, NNTrainingStateSoftTarget],
     tuple[jax.Array, jax.Array, jax.Array],
 ]:
+    """Performs gradient updates over all samples in a batch.
+
+    Args:
+        train_state_policy: Policy network training state.
+        train_state_q1: First Q-network training state with target network.
+        train_state_q2: Second Q-network training state with target network.
+        batch: Batch of transition data from the replay buffer.
+        config: The agent's configuration.
+        key: JAX random key for action sampling.
+
+    Returns:
+        Updated training states and arrays of losses for each sample.
+    """
     keys = jax.random.split(key, (batch.states.shape[0], 2))
     (
         (train_state_policy, train_state_q1, train_state_q2),
@@ -75,25 +88,27 @@ def train_agent(
     jax.Array,
     jax.Array,
 ]:
-    """Trains a SAC agent over a specified number of training loops.
+    """Trains a SAC agent using off-policy replay buffer updates.
 
-    For each loop a trajectory of `config.n_actor_steps` is collected from the
-    vectorized environment and used for training.v
+    Each training loop samples one transition into the replay buffer, then
+    performs multiple gradient updates on randomly sampled batches from the
+    buffer.
 
     Evaluation is done on a copy of the environment.
     TODO: Is this even necessary?
 
     Args:
-        train_state: The initial state of the neural network model.
-        envs: The vectorized gym environment for training.
+        train_state_policy: Initial policy network training state.
+        train_state_q1: Initial first Q-network training state with target.
+        train_state_q2: Initial second Q-network training state with target.
+        envs: Vectorized gym environment for collecting experience.
         config: The agent's configuration.
-        data_logger: A logger for saving training data and model checkpoints.
-        max_training_loops: The total number of training loops to execute.
-        rngs: A container for JAX random number generators.
+        data_logger: Logger for saving training data and model checkpoints.
+        max_training_loops: Total number of training loops to execute.
+        rngs: Container for flax.nnx random number generators.
 
     Returns:
-        A tuple containing the final training state, the environment, and arrays
-        of the loss and evaluation histories.
+        Tuple of final training states, environment, and loss/evaluation histories.
     """
     data_logger.store_metadata("config", config.to_dict())
     replay_buffer: ReplayBuffer = ReplayBuffer(

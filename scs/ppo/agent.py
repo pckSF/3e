@@ -28,11 +28,7 @@ def actor_action(
     states: jax.Array,
     key: jax.Array,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
-    """Samples an action from the actor's policy.
-
-    This function computes the action distribution from the actor model and
-    samples an action.
-    """
+    """Samples an action from the actor's policy."""
     a_means, a_log_stds, _values = model(states)
     actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
         key, shape=a_means.shape
