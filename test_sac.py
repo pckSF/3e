@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+
+os.environ["JAX_PLATFORM_NAME"] = "cpu"
+
 from flax import nnx
 import gymnasium as gym
 
@@ -28,7 +32,7 @@ agent_config = get_config(
     lr_end_value_policy=0.0,
     lr_decay_policy=0.99,
     optimizer_policy="adam",
-    lr_qvalue=3e-4,
+    lr_qvalue=3e-3,
     lr_schedule_qvalue="linear",
     lr_end_value_qvalue=0.0,
     lr_decay_qvalue=0.99,
@@ -36,9 +40,8 @@ agent_config = get_config(
     discount_factor=0.99,
     entropy_coefficient=0.2,
     n_actors=10,
-    n_actor_steps=128,
     batch_size=256,
-    num_epochs=3,
+    num_epochs=1,
     save_checkpoints=500,
     evaluation_frequency=25,
     max_training_loops=1000000,

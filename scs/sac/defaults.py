@@ -104,11 +104,6 @@ def get_config(
     Returns:
         A `FrozenConfigDict` containing the default SAC hyperparameters.
     """
-    if n_actors * n_actor_steps < batch_size:
-        raise ValueError(
-            f"Batch size {batch_size} cannot be larger than total "
-            f"collected steps {n_actors * n_actor_steps}."
-        )
     if optimizer_policy.lower() not in {"adam", "sgd"}:
         raise ValueError(
             f"Unsupported policy optimizer, expected 'adam' or 'sgd'; "

@@ -49,18 +49,18 @@ def compute_q_target(
     Uses the minimum of the two target Q-networks (clipped double Q-learning)
     and subtracts entropy to implement the maximum entropy objective in SAC.
     """
-    actions, a_means, a_log_stds = actor_action(
+    next_actions, a_means, a_log_stds = actor_action(
         model_policy,
         batch.next_states,
         key,
     )
-    action_log_densities = norm.logpdf(
-        actions, loc=a_means, scale=jnp.exp(a_log_stds)
+    next_action_log_densities = norm.logpdf(
+        next_actions, loc=a_means, scale=jnp.exp(a_log_stds)
     ).sum(axis=-1)
-    q1_values = jnp.squeeze(model_q1_target(batch.next_states, actions))
-    q2_values = jnp.squeeze(model_q2_target(batch.next_states, actions))
+    q1_values = jnp.squeeze(model_q1_target(batch.next_states, next_actions))
+    q2_values = jnp.squeeze(model_q2_target(batch.next_states, next_actions))
     min_q_values = jnp.minimum(q1_values, q2_values)
-    next_values = min_q_values - config.entropy_coefficient * action_log_densities
+    next_values = min_q_values - config.entropy_coefficient * next_action_log_densities
     next_values *= 1.0 - batch.terminals
     q_targets = batch.rewards + config.discount_factor * next_values
     return q_targets
@@ -102,7 +102,7 @@ def policy_loss_fn(
     q2_values = jnp.squeeze(model_q2(batch.states, actions))
     min_q_values = jnp.minimum(q1_values, q2_values)
     policy_value = jnp.mean(
-        min_q_values - config.entropy_coefficient * action_log_densities
+        config.entropy_coefficient * action_log_densities - min_q_values
     )
     return -policy_value  # Maximize the policy value
 
