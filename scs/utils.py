@@ -34,15 +34,7 @@ def states_healthcheck(
         )
 
 
-@partial(
-    jax.jit,
-    static_argnums=(
-        0,
-        1,
-        2,
-        3,
-    ),
-)
+@partial(jax.jit, static_argnums=(0, 1, 2, 3))
 def get_train_batch_indices(
     n_batches: int,
     batch_size: int,

@@ -16,6 +16,7 @@ class PPOConfig(Protocol):
     improving code completion.
     """
 
+    env_name: str
     lr_policyvalue: float
     lr_schedule_policyvalue: str
     lr_end_value_policyvalue: float
@@ -39,6 +40,7 @@ class PPOConfig(Protocol):
 
 
 def get_config(
+    env_name: str = "Hopper-v5",
     lr_policyvalue: float = 2.5e-4,
     lr_schedule_policyvalue: str = "linear",
     lr_end_value_policyvalue: float = 0.0,
@@ -64,6 +66,7 @@ def get_config(
     Also serves as a template to manually create sets of PPO parameters.
 
     Args:
+        env_name: The name of the Gymnasium environment to train on.
         lr_policyvalue: The learning rate for the shared policy-value optimizer.
         lr_schedule_policyvalue: The learning rate schedule type
             ('constant', 'linear', or 'exponential').
@@ -105,6 +108,7 @@ def get_config(
         )
     config = make_config(
         {
+            "env_name": env_name,
             "lr_policyvalue": lr_policyvalue,
             "lr_schedule_policyvalue": lr_schedule_policyvalue.lower(),
             "lr_end_value_policyvalue": lr_end_value_policyvalue,

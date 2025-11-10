@@ -107,7 +107,7 @@ def create_plot(
 
     # Add configuration as text box
     config_text = format_config_text(config)
-    props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
+    props = {"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5}
     ax.text(
         1.02,
         0.5,

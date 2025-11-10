@@ -16,7 +16,10 @@ from scs.data import (
     stack_agent_advantages,
     stack_agent_trajectories,
 )
-from scs.evaluation import evaluation_trajectory
+from scs.evaluation import (
+    evaluation_trajectory,
+    render_trajectory,
+)
 from scs.ppo.agent import train_step
 from scs.ppo.rollouts import collect_trajectories
 from scs.utils import get_train_batch_indices
@@ -112,19 +115,18 @@ def train_agent(
     data_logger.store_metadata("config", config.to_dict())
     states: np.ndarray = envs.reset()[0]
     reset_mask = np.zeros((config.n_actors,), dtype=bool)
-    model = nnx.merge(train_state.model_def, train_state.model_state)
     loss_history: list[float] = []
     eval_history: list[float] = []
     eval_envs: gym.vector.SyncVectorEnv = deepcopy(envs)
     progress_bar: tqdm = tqdm(range(max_training_loops), desc="Training Loops")
     for training_loop in progress_bar:
         trajectories, reset_mask, states = collect_trajectories(
-            model=model,
+            model=nnx.merge(train_state.model_def, train_state.model_state),
             envs=envs,
             reset_mask=reset_mask,
             state=states,
-            rng=rngs,
             config=config,
+            rng=rngs,
         )
         train_state, loss, loss_components = update_on_trajectory(
             train_state=train_state,
@@ -137,6 +139,12 @@ def train_agent(
                 filename="checkpoint",
                 data=train_state.model_state,
             )
+            render_trajectory(
+                model=nnx.merge(train_state.model_def, train_state.model_state),
+                config=config,
+                data_logger=data_logger,
+                rng=rngs,
+            )
         data_logger.save_csv_row("losses", loss)
         ppo_value, value_loss, entropy, kl_estimate = loss_components[0]
         data_logger.save_csv_row("ppo_value", ppo_value)
@@ -144,10 +152,9 @@ def train_agent(
         data_logger.save_csv_row("entropy", entropy)
         data_logger.save_csv_row("kl_estimate", kl_estimate)
         loss_history.append(float(np.mean(loss)))
-        model = nnx.merge(train_state.model_def, train_state.model_state)
         if training_loop % config.evaluation_frequency == 0:
             eval_rewards = evaluation_trajectory(
-                model=model,
+                model=nnx.merge(train_state.model_def, train_state.model_state),
                 envs=eval_envs,
                 config=config,
                 rng=rngs,

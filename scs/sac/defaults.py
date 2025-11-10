@@ -16,6 +16,7 @@ class SACConfig(Protocol):
     improving code completion.
     """
 
+    env_name: str
     lr_policy: float
     lr_schedule_policy: str
     lr_end_value_policy: float
@@ -27,6 +28,7 @@ class SACConfig(Protocol):
     lr_decay_qvalue: float
     optimizer_qvalue: str
     discount_factor: float
+    entropy_coefficient: float
     n_actors: int
     n_actor_steps: int
     batch_size: int
@@ -34,11 +36,14 @@ class SACConfig(Protocol):
     save_checkpoints: int
     evaluation_frequency: int
     max_training_loops: int
+    replay_buffer_size: int
+    target_network_update_weight: float
 
     def to_dict(self) -> dict: ...
 
 
 def get_config(
+    env_name: str = "Hopper-v5",
     lr_policy: float = 3e-4,
     lr_schedule_policy: str = "linear",
     lr_end_value_policy: float = 0.0,
@@ -50,6 +55,7 @@ def get_config(
     lr_decay_qvalue: float = 0.99,
     optimizer_qvalue: str = "adam",
     discount_factor: float = 0.99,
+    entropy_coefficient: float = 0.2,
     n_actors: int = 10,
     n_actor_steps: int = 128,
     batch_size: int = 256,
@@ -57,6 +63,8 @@ def get_config(
     save_checkpoints: int = 500,
     evaluation_frequency: int = 25,
     max_training_loops: int = 10000,
+    replay_buffer_size: int = 1000000,
+    target_network_update_weight: float = 0.005,
 ) -> SACConfig:
     """Generates the default configuration for the SAC agent.
 
@@ -64,6 +72,7 @@ def get_config(
     Also serves as a template to manually create sets of SAC parameters.
 
     Args:
+        env_name: The name of the Gymnasium environment to train on.
         lr_policy: The learning rate for the policy optimizer.
         lr_schedule_policy: The learning rate schedule type for the policy
             ('constant', 'linear', or 'exponential').
@@ -77,6 +86,7 @@ def get_config(
         lr_decay_qvalue: The decay rate for the Q-value learning rate schedule.
         optimizer_qvalue: The optimizer to use for Q-value function training.
         discount_factor: The discount factor for future rewards (gamma).
+        entropy_coefficient: The coefficient for the entropy term in the loss function.
         n_actors: The number of parallel actors collecting experience.
         n_actor_steps: The number of steps each actor takes before updating the model.
         batch_size: The number of samples per batch for training.
@@ -84,6 +94,8 @@ def get_config(
         save_checkpoints: Frequency of saving model checkpoints.
         evaluation_frequency: Frequency of running policy evaluations.
         max_training_loops: The maximum number of training loops to perform.
+        replay_buffer_size: The maximum size of the replay buffer.
+        target_network_update_weight: The weight for soft updates of the target network.
 
     Returns:
         A `FrozenConfigDict` containing the default SAC hyperparameters.
@@ -117,6 +129,7 @@ def get_config(
         )
     config = make_config(
         {
+            "env_name": env_name,
             "lr_policy": lr_policy,
             "lr_schedule_policy": lr_schedule_policy.lower(),
             "lr_end_value_policy": lr_end_value_policy,
@@ -128,6 +141,7 @@ def get_config(
             "lr_decay_qvalue": lr_decay_qvalue,
             "optimizer_qvalue": optimizer_qvalue.lower(),
             "discount_factor": discount_factor,
+            "entropy_coefficient": entropy_coefficient,
             "n_actors": n_actors,
             "n_actor_steps": n_actor_steps,
             "batch_size": batch_size,
@@ -135,6 +149,8 @@ def get_config(
             "save_checkpoints": save_checkpoints,
             "evaluation_frequency": evaluation_frequency,
             "max_training_loops": max_training_loops,
+            "replay_buffer_size": replay_buffer_size,
+            "target_network_update_weight": target_network_update_weight,
         }
     )
     return cast("SACConfig", config)

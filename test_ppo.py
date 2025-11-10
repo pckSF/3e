@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import os
-
-os.environ["JAX_PLATFORMS"] = "cpu"
-
 from flax import nnx
 import gymnasium as gym
 
@@ -60,7 +56,6 @@ rngs = nnx.Rngs(
 def make_env():
     env = gym.make("Hopper-v5")
     env = gym.wrappers.NormalizeObservation(env)
-    env = gym.wrappers.NormalizeReward(env)
     return env
 
 

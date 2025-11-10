@@ -102,7 +102,7 @@ class PolicyValue(nnx.Module):
             rngs=rngs,
         )
 
-    def __call__(self, x: jax.Array) -> tuple[jax.Array, jax.Array, jax.Array]:
+    def __call__(self, state: jax.Array) -> tuple[jax.Array, jax.Array, jax.Array]:
         """Computes action distribution parameters and value estimates for states.
 
         Returns:
@@ -111,11 +111,11 @@ class PolicyValue(nnx.Module):
             - The action log standard deviations.
             - The state value estimates.
         """
-        v = nnx.relu(self.value_layernorm_1(self.value_linear_1(x)))
+        v = nnx.relu(self.value_layernorm_1(self.value_linear_1(state)))
         v = nnx.relu(self.value_layernorm_2(self.value_linear_2(v)))
         v = nnx.relu(self.value_layernorm_3(self.value_linear_3(v)))
 
-        p = nnx.relu(self.policy_layernorm_1(self.policy_linear_1(x)))
+        p = nnx.relu(self.policy_layernorm_1(self.policy_linear_1(state)))
         p = nnx.relu(self.policy_layernorm_2(self.policy_linear_2(p)))
         p = nnx.relu(self.policy_layernorm_3(self.policy_linear_3(p)))
 

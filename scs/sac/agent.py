@@ -9,22 +9,22 @@ import jax
 import jax.numpy as jnp
 from jax.scipy.stats import norm
 
-from scs.data import (
-    TrajectoryData,
-    TrajectoryGAE,
-    get_advantage_batch,
-    get_trajectory_batch,
-)
-
 if TYPE_CHECKING:
-    from scs.nn_modules import NNTrainingState
-    from scs.ppo.defaults import PPOConfig
-    from scs.ppo.models import PolicyValue
+    from scs.data import TrajectoryData
+    from scs.nn_modules import (
+        NNTrainingState,
+        NNTrainingStateSoftTarget,
+    )
+    from scs.sac.defaults import SACConfig
+    from scs.sac.models import (
+        Policy,
+        QValue,
+    )
 
 
 @nnx.jit
 def actor_action(
-    model: PolicyValue,
+    model_policy: Policy,
     states: jax.Array,
     rng: nnx.Rngs,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
@@ -33,81 +33,79 @@ def actor_action(
     This function computes the action distribution from the actor model and
     samples an action.
     """
-    a_means, a_log_stds, _values = model(states)
+    a_means, a_log_stds = model_policy(states)
     actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
         rng.action_select(), shape=a_means.shape
     )
     return actions, a_means, a_log_stds
 
 
-def loss_fn(
-    model: PolicyValue,
+def compute_q_target(
+    model_policy: Policy,
+    model_q1_target: Policy,
+    model_q2_target: Policy,
     batch: TrajectoryData,
-    batch_computations: TrajectoryGAE,
-    config: PPOConfig,
-) -> tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array, jax.Array]]:
-    """Computes the PPO loss for a batch of trajectory data.
-
-    This function calculates the combined loss for the actor-critic model, which
-    includes the policy loss (PPO's clipped objective), the value function loss,
-    and an entropy bonus to encourage exploration.
-
-    The entropy is based on the differential entropy of a normal distribution:
-        H(X)    = log(sigma * sqrt(2 * pi * e))
-                = log(sigma) + 0.5 * (log(2 * pi) + 1)
-
-    Since the optax optimizers perform gradient descent, we return the negative
-    of the total loss. Reminder, the loss is composed of a
-    -   ppo_value, which are the weighted advantages that we want to maximize.
-    -   value_loss, which we want to minimize.
-    -   entropy, which we want to maximize.
-
-    Args:
-        model: The actor-critic model being trained.
-        batch: A batch of trajectory data from rollouts.
-        batch_computations: Pre-computed values like GAE and returns.
-        config: The agent's configuration.
-
-    Returns:
-        The total PPO loss for the batch.
-    """
-    a_means, a_log_stds, values = model(batch.states)
-    values = jnp.squeeze(values)
-    returns = batch_computations.advantages + batch_computations.values
-    value_loss = jnp.mean((returns - values) ** 2)
-    entropy = jnp.sum(a_log_stds + 0.5 * (jnp.log(2 * jnp.pi) + 1), axis=-1).mean()
-
+    config: SACConfig,
+    key: jax.Array,
+) -> jax.Array:
+    actions, a_means, a_log_stds = actor_action(
+        model_policy,
+        batch.next_states,
+        key,
+    )
     action_log_densities = norm.logpdf(
-        batch.actions, loc=a_means, scale=jnp.exp(a_log_stds)
-    )
-    # Density ratio for the action vectors that constitute an action
-    log_ratios = jnp.sum(action_log_densities - batch.action_log_densities, axis=-1)
-    density_ratios = jnp.exp(log_ratios)
-    kl_estimate = ((density_ratios - 1) - log_ratios).mean()
+        actions, loc=a_means, scale=jnp.exp(a_log_stds)
+    ).sum(axis=-1)
+    q1_values = model_q1_target(batch.next_states, actions)
+    q2_values = model_q2_target(batch.next_states, actions)
+    min_q_values = jnp.minimum(q1_values, q2_values, axis=-1)
+    next_values = min_q_values - config.entropy_coefficient * action_log_densities
+    next_values *= 1.0 - batch.terminals
+    q_targets = batch.rewards + config.discount_factor * next_values
+    return q_targets
 
-    policy_gradient_value = density_ratios * batch_computations.advantages
-    clipped_pg_value = (
-        jax.lax.clamp(
-            1.0 - config.clip_parameter, density_ratios, 1.0 + config.clip_parameter
-        )
-        * batch_computations.advantages
+
+def qvalue_loss_fn(
+    model_qvalue: QValue,
+    target_qvalue: jax.Array,
+) -> jax.Array:
+    return jnp.mean((target_qvalue - model_qvalue) ** 2)
+
+
+def policy_loss_fn(
+    model_policy: Policy,
+    model_q1: QValue,
+    model_q2: QValue,
+    batch: TrajectoryData,
+    config: SACConfig,
+    key: jax.Array,
+) -> jax.Array:
+    actions, a_means, a_log_stds = actor_action(
+        model_policy,
+        batch.states,
+        key,
     )
-    ppo_value = jnp.mean(jnp.minimum(policy_gradient_value, clipped_pg_value), axis=0)
-    return -(
-        ppo_value
-        - config.value_loss_coefficient * value_loss
-        + config.entropy_coefficient * entropy
-    ), (ppo_value, value_loss, entropy, kl_estimate)
+    action_log_densities = norm.logpdf(
+        actions, loc=a_means, scale=jnp.exp(a_log_stds)
+    ).sum(axis=-1)
+    q1_values = model_q1(batch.states, actions)
+    q2_values = model_q2(batch.states, actions)
+    min_q_values = jnp.minimum(q1_values, q2_values, axis=-1)
+    policy_value = jnp.mean(
+        min_q_values - config.entropy_coefficient * action_log_densities
+    )
+    return -policy_value  # Maximize the policy value
 
 
 def train_step(
-    train_state: NNTrainingState,
-    batch_indices: jax.Array,
-    trajectory: TrajectoryData,
-    trajectory_advantages: TrajectoryGAE,
-    config: PPOConfig,
+    train_states: tuple[
+        NNTrainingState, NNTrainingStateSoftTarget, NNTrainingStateSoftTarget
+    ],
+    batch_and_keys: tuple[TrajectoryData, jax.Array],
+    config: SACConfig,
 ) -> tuple[
-    NNTrainingState, tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array, jax.Array]]
+    tuple[NNTrainingState, NNTrainingStateSoftTarget, NNTrainingStateSoftTarget],
+    tuple[jax.Array, jax.Array, jax.Array],
 ]:
     """Performs a single training step on a batch of data.
 
@@ -124,9 +122,37 @@ def train_step(
     Returns:
         A tuple containing the updated training state and the loss for the batch.
     """
-    model = nnx.merge(train_state.model_def, train_state.model_state)
-    batch = get_trajectory_batch(trajectory, batch_indices)
-    batch_computations = get_advantage_batch(trajectory_advantages, batch_indices)
-    grad_fn = nnx.value_and_grad(loss_fn, argnums=0, has_aux=True)
-    (loss, *loss_components), grads = grad_fn(model, batch, batch_computations, config)
-    return train_state.apply_gradients(grads), (loss, loss_components)
+    train_state_policy, train_state_q1, train_state_q2 = train_states
+    batch, key_qvalue, key_policy = batch_and_keys
+    policy = nnx.merge(train_state_policy.model_def, train_state_policy.model_state)
+    model_q1 = nnx.merge(train_state_q1.model_def, train_state_q1.model_state)
+    model_q1_target = nnx.merge(
+        train_state_q1.model_def, train_state_q1.target_model_state
+    )
+    model_q2 = nnx.merge(train_state_q2.model_def, train_state_q2.model_state)
+    model_q2_target = nnx.merge(
+        train_state_q2.model_def, train_state_q2.target_model_state
+    )
+
+    q_grad_fn = jax.value_and_grad(qvalue_loss_fn, argnums=0)
+    q_targets = compute_q_target(
+        policy, model_q1_target, model_q2_target, batch, config, key_qvalue
+    )
+    loss_q1, grads_q1 = q_grad_fn(model_q1, q_targets)
+    train_state_q1 = train_state_q1.apply_gradients(grads=grads_q1)
+    model_q1 = nnx.merge(train_state_q1.model_def, train_state_q1.model_state)
+    loss_q2, grads_q2 = q_grad_fn(model_q2, q_targets)
+    train_state_q2 = train_state_q2.apply_gradients(grads=grads_q2)
+    model_q2 = nnx.merge(train_state_q2.model_def, train_state_q2.model_state)
+
+    policy_grad_fn = jax.value_and_grad(policy_loss_fn, argnums=0)
+    loss_policy, grads_policy = policy_grad_fn(
+        policy, model_q1, model_q2, batch, config, key_policy
+    )
+    train_state_policy = train_state_policy.apply_gradients(grads=grads_policy)
+
+    return (train_state_policy, train_state_q1, train_state_q2), (
+        loss_policy,
+        loss_q1,
+        loss_q2,
+    )

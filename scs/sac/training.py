@@ -10,89 +10,74 @@ import jax.numpy as jnp
 import numpy as np
 from tqdm import tqdm
 
-from scs.data import (
-    TrajectoryData,
-    compute_advantages,
-    stack_agent_advantages,
-    stack_agent_trajectories,
-)
+from scs.buffer import ReplayBuffer
 from scs.evaluation import evaluation_trajectory
-from scs.ppo.agent import train_step
-from scs.ppo.rollouts import collect_trajectories
+from scs.sac.agent import train_step
+from scs.sac.rollouts import sample_transition_to_buffer
 from scs.utils import get_train_batch_indices
 
 if TYPE_CHECKING:
     import gymnasium as gym
 
+    from scs.data import TrajectoryData
     from scs.data_logging import DataLogger
-    from scs.nn_modules import NNTrainingState
-    from scs.ppo.defaults import PPOConfig
+    from scs.nn_modules import (
+        NNTrainingState,
+        NNTrainingStateSoftTarget,
+    )
+    from scs.sac.defaults import SACConfig
 
 
 @partial(jax.jit, static_argnums=(2,))
-def update_on_trajectory(
-    train_state: NNTrainingState,
-    trajectories: TrajectoryData,
-    config: PPOConfig,
+def update_on_batches(
+    train_state_policy: NNTrainingState,
+    train_state_q1: NNTrainingStateSoftTarget,
+    train_state_q2: NNTrainingStateSoftTarget,
+    batch: TrajectoryData,
+    config: SACConfig,
     key: jax.Array,
 ) -> tuple[
-    NNTrainingState, jax.Array, tuple[jax.Array, jax.Array, jax.Array, jax.Array]
+    tuple[NNTrainingState, NNTrainingStateSoftTarget, NNTrainingStateSoftTarget],
+    tuple[jax.Array, jax.Array, jax.Array],
 ]:
-    """Performs multiple updates on one collected trajectory.
-
-    Computes advantages and samples `config.num_epochs` batch indices for the
-    provided trajectory and performs training updates on the agent's model for
-    each batch.
-
-    Args:
-        train_state: The neural network model's training state container.
-        trajectories: Trajectories of experience collected from the environment.
-        config: The agent's configuration.
-        key: A JAX random key for generating batch indices.
-
-    Returns:
-        A tuple containing the updated training state and the loss values for
-        each training step.
-    """
-    trajectory_advantages = compute_advantages(
-        trajectories,
-        nnx.merge(train_state.model_def, train_state.model_state),
-        config,
-    )
-    trajectories = stack_agent_trajectories(trajectories)
-    trajectory_advantages = stack_agent_advantages(trajectory_advantages)
-    batch_indices = get_train_batch_indices(
-        n_batches=config.num_epochs,
-        batch_size=config.batch_size,
-        max_index=trajectories.n_steps,
-        resample=False,
-        key=key,
-    )
-    train_state, (loss, loss_components) = jax.lax.scan(
+    keys = jax.random.split(key, (batch.states.shape[0], 2))
+    (
+        (train_state_policy, train_state_q1, train_state_q2),
+        (loss_policy, loss_q1, loss_q2),
+    ) = jax.lax.scan(
         partial(
             train_step,
-            trajectory=trajectories,
-            trajectory_advantages=trajectory_advantages,
             config=config,
         ),
-        train_state,
-        batch_indices,
+        (train_state_policy, train_state_q1, train_state_q2),
+        (batch, keys),
     )
-    return train_state, loss, loss_components
+    return (train_state_policy, train_state_q1, train_state_q2), (
+        loss_policy,
+        loss_q1,
+        loss_q2,
+    )
 
 
 def train_agent(
-    train_state: NNTrainingState,
+    train_state_policy: NNTrainingState,
+    train_state_q1: NNTrainingStateSoftTarget,
+    train_state_q2: NNTrainingStateSoftTarget,
     envs: gym.vector.SyncVectorEnv,
-    config: PPOConfig,
+    config: SACConfig,
     data_logger: DataLogger,
     max_training_loops: int,
     rngs: nnx.Rngs,
-) -> tuple[NNTrainingState, gym.vector.SyncVectorEnv, jax.Array, jax.Array]:
-    """Trains a PPO agent over a specified number of training loops.
+) -> tuple[
+    tuple[NNTrainingState, NNTrainingStateSoftTarget, NNTrainingStateSoftTarget],
+    gym.vector.SyncVectorEnv,
+    jax.Array,
+    jax.Array,
+]:
+    """Trains a SAC agent over a specified number of training loops.
 
     For each loop a trajectory of `config.n_actor_steps` is collected from the
-    vectorized environment and used for training.
+    vectorized environment and used for training.v
 
     Evaluation is done on a copy of the environment.
     TODO: Is this even necessary?
@@ -110,44 +95,68 @@ def train_agent(
         of the loss and evaluation histories.
     """
     data_logger.store_metadata("config", config.to_dict())
-    states: np.ndarray = envs.reset()[0]
-    reset_mask = np.zeros((config.n_actors,), dtype=bool)
-    model = nnx.merge(train_state.model_def, train_state.model_state)
-    loss_history: list[float] = []
+    replay_buffer: ReplayBuffer = ReplayBuffer(
+        max_size=config.replay_buffer_size,
+        state_shape=11,
+        action_dim=3,
+    )
+    state: np.ndarray = envs.reset()[0]
+    policy_model = nnx.merge(
+        train_state_policy.model_def, train_state_policy.model_state
+    )
+    policy_loss_history: list[float] = []
+    mean_q_loss_history: list[float] = []
     eval_history: list[float] = []
     eval_envs: gym.vector.SyncVectorEnv = deepcopy(envs)
     progress_bar: tqdm = tqdm(range(max_training_loops), desc="Training Loops")
     for training_loop in progress_bar:
-        trajectories, reset_mask, states = collect_trajectories(
-            model=model,
+        state, replay_buffer = sample_transition_to_buffer(
+            state=state,
+            policy_model=policy_model,
             envs=envs,
-            reset_mask=reset_mask,
-            state=states,
+            replay_buffer=replay_buffer,
             rng=rngs,
-            config=config,
         )
-        train_state, loss, loss_components = update_on_trajectory(
-            train_state=train_state,
-            trajectories=trajectories,
-            config=config,
+        if replay_buffer.full:
+            max_index = replay_buffer.size
+        else:
+            max_index = replay_buffer.current_index
+        batch_indices = get_train_batch_indices(
+            n_batches=config.num_epochs,
+            batch_size=config.batch_size,
+            max_index=max_index,
+            resample=False,
             key=rngs.sample(),
         )
+        batches = replay_buffer.sample_batch(batch_indices)
+        (train_state_policy, train_state_q1, train_state_q2), losses = (
+            update_on_batches(
+                train_state_policy,
+                train_state_q1,
+                train_state_q2,
+                batches,
+                config,
+                rngs.action_select(),
+            )
+        )
+        loss_policy, loss_q1, loss_q2 = losses
+
         if (training_loop + 1) % config.save_checkpoints == 0:
             data_logger.save_checkpoint(
                 filename="checkpoint",
-                data=train_state.model_state,
+                data=train_state_policy.model_state,
             )
-        data_logger.save_csv_row("losses", loss)
-        ppo_value, value_loss, entropy, kl_estimate = loss_components[0]
-        data_logger.save_csv_row("ppo_value", ppo_value)
-        data_logger.save_csv_row("value_loss", value_loss)
-        data_logger.save_csv_row("entropy", entropy)
-        data_logger.save_csv_row("kl_estimate", kl_estimate)
-        loss_history.append(float(np.mean(loss)))
-        model = nnx.merge(train_state.model_def, train_state.model_state)
+        data_logger.save_csv_row("losses_policy", loss_policy)
+        data_logger.save_csv_row("losses_q1", loss_q1)
+        data_logger.save_csv_row("losses_q2", loss_q2)
+        policy_loss_history.append(float(np.mean(loss_policy)))
+        mean_q_loss_history.append(float(np.mean(loss_q1 + loss_q2)))
+        policy_model = nnx.merge(
+            train_state_policy.model_def, train_state_policy.model_state
+        )
         if training_loop % config.evaluation_frequency == 0:
             eval_rewards = evaluation_trajectory(
-                model=model,
+                model=policy_model,
                 envs=eval_envs,
                 config=config,
                 rng=rngs,
@@ -156,9 +165,16 @@ def train_agent(
             eval_history.append(float(np.mean(eval_rewards)))
         progress_bar.set_postfix(
             {
-                "loss": f"{loss_history[-1]:.4f}",
+                "p_loss": f"{policy_loss_history[-1]:.4f}",
+                "q_loss": f"{mean_q_loss_history[-1]:.4f}",
                 "eval reward": f"{eval_history[-1]:.2f}",
             }
         )
     data_logger.wait_until_finished()
-    return train_state, envs, jnp.array(loss_history), jnp.array(eval_history)
+    return (
+        (train_state_policy, train_state_q1, train_state_q2),
+        envs,
+        jnp.array(policy_loss_history),
+        jnp.array(mean_q_loss_history),
+        jnp.array(eval_history),
+    )
