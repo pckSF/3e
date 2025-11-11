@@ -31,6 +31,7 @@ class PPOConfig(Protocol):
     batch_size: int
     num_epochs: int
     value_loss_coefficient: float
+    max_grad_norm_policyvalue: float
     save_checkpoints: int
     evaluation_frequency: int
     normalize_advantages: bool
@@ -55,6 +56,7 @@ def get_config(
     batch_size: int = 256,
     num_epochs: int = 3,
     value_loss_coefficient: float = 0.5,
+    max_grad_norm_policyvalue: float = 1.0,
     save_checkpoints: int = 500,
     evaluation_frequency: int = 25,
     normalize_advantages: bool = False,
@@ -82,6 +84,7 @@ def get_config(
         batch_size: The number of samples per batch for training.
         num_epochs: The number of epochs for training on each batch of data.
         value_loss_coefficient: Coefficient for the value loss term.
+    max_grad_norm_policyvalue: Gradient clipping threshold for the shared optimizer.
         save_checkpoints: Frequency of saving model checkpoints.
         evaluation_frequency: Frequency of running policy evaluations.
         normalize_advantages: Whether to normalize advantages.
@@ -123,6 +126,7 @@ def get_config(
             "batch_size": batch_size,
             "num_epochs": num_epochs,
             "value_loss_coefficient": value_loss_coefficient,
+            "max_grad_norm_policyvalue": max_grad_norm_policyvalue,
             "save_checkpoints": save_checkpoints,
             "evaluation_frequency": evaluation_frequency,
             "normalize_advantages": normalize_advantages,

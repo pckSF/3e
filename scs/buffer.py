@@ -128,7 +128,7 @@ class ReplayBuffer:
             ),  # Placeholder
             rewards=jnp.asarray(self.rewards, dtype=jnp.float32),
             next_states=jnp.asarray(self.next_states, dtype=jnp.float32),
-            terminals=jnp.asarray(self.terminals, dtype=jnp.uint32),
+            terminals=jnp.asarray(self.terminals, dtype=jnp.bool_),
             n_steps=self.available_samples,
             agents=1,
             samples=True,
@@ -144,11 +144,11 @@ class ReplayBuffer:
             states=jnp.asarray(self.states[indices], dtype=jnp.float32),
             actions=jnp.asarray(self.actions[indices], dtype=jnp.float32),
             action_log_densities=jnp.zeros(
-                (indices.shape[0],), dtype=jnp.float32
+                (indices.shape[0], self.actions.shape[1]), dtype=jnp.float32
             ),  # Placeholder
             rewards=jnp.asarray(self.rewards[indices], dtype=jnp.float32),
             next_states=jnp.asarray(self.next_states[indices], dtype=jnp.float32),
-            terminals=jnp.asarray(self.terminals[indices], dtype=jnp.uint32),
+            terminals=jnp.asarray(self.terminals[indices], dtype=jnp.bool_),
             n_steps=indices.shape[0],
             agents=1,
             samples=True,

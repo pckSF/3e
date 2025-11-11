@@ -90,14 +90,14 @@ class PolicyValue(nnx.Module):
         self.policy_mean: nnx.Linear = nnx.Linear(
             in_features=128,
             out_features=3,
-            kernel_init=nnx.initializers.orthogonal(),
+            kernel_init=nnx.initializers.orthogonal(scale=0.01),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
         self.policy_log_std: nnx.Linear = nnx.Linear(
             in_features=128,
             out_features=3,
-            kernel_init=nnx.initializers.orthogonal(),
+            kernel_init=nnx.initializers.orthogonal(scale=0.01),
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )

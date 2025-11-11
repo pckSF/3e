@@ -114,8 +114,10 @@ class TrajectoryGAE:
     """JAX-friendly PyTree data container that value predictions and the GAE.
 
     Fields that are scanned over axis 0:
-    - values:           [T, N]
-    - advantages:       [T, N]
+    - values:            [T, N]
+    - returns:           [T, N]
+    - advantages:        [T, N]
+    - policy_advantages: [T, N]
 
     Static metadata:
     - n_steps:         int
@@ -126,7 +128,9 @@ class TrajectoryGAE:
     """
 
     values: jax.Array
+    returns: jax.Array
     advantages: jax.Array
+    policy_advantages: jax.Array
     n_steps: int = struct.field(pytree_node=False)
     agents: int = struct.field(pytree_node=False)
     gamma: float = struct.field(pytree_node=False)
@@ -138,13 +142,19 @@ class TrajectoryGAE:
         """Loads TrajectoryData from a pickle file."""
         with open(path, "rb") as f:
             data = pickle.load(f)
+        if "returns" not in data:
+            data["returns"] = data["advantages"] + data["values"]
+        if "policy_advantages" not in data:
+            data["policy_advantages"] = data["advantages"]
         return cls(**data)
 
     def save(self, path: str) -> None:
         """Saves TrajectoryGAE to a pickle file."""
         data_dict = {
             "values": self.values,
+            "returns": self.returns,
             "advantages": self.advantages,
+            "policy_advantages": self.policy_advantages,
             "n_steps": self.n_steps,
             "agents": self.agents,
             "gamma": self.gamma,
@@ -186,12 +196,20 @@ def compute_advantages(
         lmbda=config.gae_lambda,
     )
 
+    returns = advantages + values
+
     if config.normalize_advantages:
-        advantages = (advantages - jnp.mean(advantages)) / (jnp.std(advantages) + 1e-8)
+        policy_advantages = (advantages - jnp.mean(advantages)) / (
+            jnp.std(advantages) + 1e-8
+        )
+    else:
+        policy_advantages = advantages
 
     return TrajectoryGAE(
         values=values,
+        returns=returns,
         advantages=advantages,
+        policy_advantages=policy_advantages,
         n_steps=trajectory.n_steps,
         agents=trajectory.agents,
         gamma=config.discount_factor,
@@ -208,7 +226,9 @@ def stack_agent_advantages(data: TrajectoryGAE) -> TrajectoryGAE:
     steps, agents = data.n_steps, data.agents
     return TrajectoryGAE(
         values=data.values.reshape((steps * agents,)),
+        returns=data.returns.reshape((steps * agents,)),
         advantages=data.advantages.reshape((steps * agents,)),
+        policy_advantages=data.policy_advantages.reshape((steps * agents,)),
         n_steps=steps * agents,
         agents=1,
         gamma=data.gamma,
@@ -221,7 +241,9 @@ def get_advantage_batch(data: TrajectoryGAE, batch_indices: jax.Array) -> Trajec
     """Returns a batch of data based on the provided indices."""
     return TrajectoryGAE(
         values=data.values[batch_indices],
+        returns=data.returns[batch_indices],
         advantages=data.advantages[batch_indices],
+        policy_advantages=data.policy_advantages[batch_indices],
         n_steps=data.n_steps,
         agents=data.agents,
         gamma=data.gamma,

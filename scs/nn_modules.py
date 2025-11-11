@@ -67,7 +67,14 @@ def get_optimizer(
             f"Unsupported learning rate schedule, expected 'constant', 'linear' or "
             f"'exponential'; received {lr_schedule_type}"
         )
-    return optimizer(learning_rate=lr_schedule)
+
+    max_grad_norm = getattr(config, f"max_grad_norm_{postfix}", None)
+
+    transforms: list[optax.GradientTransformation] = []
+    if max_grad_norm is not None and max_grad_norm > 0.0:
+        transforms.append(optax.clip_by_global_norm(max_grad_norm))
+    transforms.append(optimizer(learning_rate=lr_schedule))
+    return optax.chain(*transforms)
 
 
 class NNTrainingState(struct.PyTreeNode):

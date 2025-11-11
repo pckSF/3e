@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-)
+from typing import TYPE_CHECKING
 
-import jax
 import jax.numpy as jnp
-from jax.scipy.stats import norm
 import numpy as np
 
 from scs.data import (
@@ -20,6 +16,17 @@ if TYPE_CHECKING:
 
     from scs.ppo.defaults import PPOConfig
     from scs.ppo.models import PolicyValue
+
+
+LOG_2PI = float(np.log(2.0 * np.pi))
+
+
+def _normal_logpdf(
+    action: np.ndarray, mean: np.ndarray, log_std: np.ndarray
+) -> np.ndarray:
+    variance_scale = np.exp(-2.0 * log_std)
+    quadratic = ((action - mean) ** 2) * variance_scale
+    return -0.5 * (quadratic + 2.0 * log_std + LOG_2PI)
 
 
 def collect_trajectories(
@@ -76,21 +83,22 @@ def collect_trajectories(
             jnp.asarray(state, dtype=jnp.float32),
             rng.action_select(),
         )
-        action_log_density = jax.jit(norm.logpdf)(
-            action,
-            loc=a_mean,
-            scale=jnp.exp(a_log_std),
+        action_np = np.asarray(action, dtype=np.float32)
+        action_log_density = _normal_logpdf(
+            action_np,
+            np.asarray(a_mean, dtype=np.float32),
+            np.asarray(a_log_std, dtype=np.float32),
         )
         next_state, reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
-            np.tanh(np.asarray(action))
+            np.tanh(action_np)
         )
 
         states[ts] = state
         next_states[ts] = next_state
-        actions[ts] = np.asarray(action)
-        action_log_densities[ts] = np.asarray(action_log_density)
+        actions[ts] = action_np
+        action_log_densities[ts] = action_log_density.astype(np.float32)
         rewards[ts] = reward
-        terminals[ts] = terminal
+        terminals[ts] = np.logical_or(terminal, truncated)
 
         reset_mask = np.logical_or(terminal, truncated)
         if reset_mask.any():
@@ -105,7 +113,7 @@ def collect_trajectories(
             action_log_densities=jnp.asarray(action_log_densities, dtype=jnp.float32),
             rewards=jnp.asarray(rewards, dtype=jnp.float32),
             next_states=jnp.asarray(next_states, dtype=jnp.float32),
-            terminals=jnp.asarray(terminals, dtype=jnp.uint32),
+            terminals=jnp.asarray(terminals, dtype=jnp.bool_),
             n_steps=max_steps,
             agents=n_envs,
         ),

@@ -17,9 +17,11 @@ from scs.data import (
     stack_agent_trajectories,
 )
 from scs.evaluation import evaluation_trajectory
-from scs.ppo.agent import train_step
+from scs.ppo.agent import (
+    BatchLossMetrics,
+    train_step,
+)
 from scs.ppo.rollouts import collect_trajectories
-from scs.utils import get_train_batch_indices
 
 if TYPE_CHECKING:
     import gymnasium as gym
@@ -35,9 +37,7 @@ def update_on_trajectory(
     trajectories: TrajectoryData,
     config: PPOConfig,
     key: jax.Array,
-) -> tuple[
-    NNTrainingState, jax.Array, tuple[jax.Array, jax.Array, jax.Array, jax.Array]
-]:
+) -> tuple[NNTrainingState, jax.Array, BatchLossMetrics]:
     """Performs multiple updates on one collected trajectory.
 
     Computes advantages and samples `config.num_epochs` batch indices for the
@@ -61,24 +61,36 @@ def update_on_trajectory(
     )
     trajectories = stack_agent_trajectories(trajectories)
     trajectory_advantages = stack_agent_advantages(trajectory_advantages)
-    batch_indices = get_train_batch_indices(
-        n_batches=config.num_epochs,
-        batch_size=config.batch_size,
-        max_index=trajectories.n_steps,
-        resample=False,
-        key=key,
-    )
-    train_state, (loss, loss_components) = jax.lax.scan(
-        partial(
-            train_step,
-            trajectory=trajectories,
-            trajectory_advantages=trajectory_advantages,
-            config=config,
-        ),
+
+    total_steps = trajectories.n_steps
+    num_minibatches = total_steps // config.batch_size
+    epoch_keys = jax.random.split(key, config.num_epochs)
+
+    def run_epoch(
+        carry_state: NNTrainingState, epoch_key: jax.Array
+    ) -> tuple[NNTrainingState, tuple[jax.Array, BatchLossMetrics]]:
+        permutation = jax.random.permutation(epoch_key, total_steps)
+        minibatch_indices = permutation.reshape((num_minibatches, config.batch_size))
+        return jax.lax.scan(
+            partial(
+                train_step,
+                trajectory=trajectories,
+                trajectory_advantages=trajectory_advantages,
+                config=config,
+            ),
+            carry_state,
+            minibatch_indices,
+        )
+
+    train_state, (epoch_losses, epoch_metrics) = jax.lax.scan(
+        run_epoch,
         train_state,
-        batch_indices,
+        epoch_keys,
     )
-    return train_state, loss, loss_components
+
+    mean_loss = jnp.mean(epoch_losses)
+    mean_metrics = jax.tree_util.tree_map(jnp.mean, epoch_metrics)
+    return train_state, mean_loss, mean_metrics
 
 
 def train_agent(
@@ -110,6 +122,13 @@ def train_agent(
         of the loss and evaluation histories.
     """
     data_logger.store_metadata("config", config.to_dict())
+    steps_per_rollout = int(config.n_actor_steps * config.n_actors)
+    if steps_per_rollout % config.batch_size != 0:
+        raise ValueError(
+            "PPO batch_size must evenly divide the total number of collected "
+            f"samples per rollout. Got batch_size={config.batch_size} with "
+            f"steps_per_rollout={steps_per_rollout}."
+        )
     states: np.ndarray = envs.reset()[0]
     reset_mask = np.zeros((config.n_actors,), dtype=bool)
     loss_history: list[float] = []
@@ -125,7 +144,7 @@ def train_agent(
             config=config,
             rng=rngs,
         )
-        train_state, loss, loss_components = update_on_trajectory(
+        train_state, loss, loss_metrics = update_on_trajectory(
             train_state=train_state,
             trajectories=trajectories,
             config=config,
@@ -137,12 +156,11 @@ def train_agent(
                 data=train_state.model_state,
             )
         data_logger.save_csv_row("losses", loss)
-        ppo_value, value_loss, entropy, kl_estimate = loss_components[0]
-        data_logger.save_csv_row("ppo_value", ppo_value)
-        data_logger.save_csv_row("value_loss", value_loss)
-        data_logger.save_csv_row("entropy", entropy)
-        data_logger.save_csv_row("kl_estimate", kl_estimate)
-        loss_history.append(float(np.mean(loss)))
+        data_logger.save_csv_row("ppo_value", loss_metrics.ppo_value)
+        data_logger.save_csv_row("value_loss", loss_metrics.value_loss)
+        data_logger.save_csv_row("entropy", loss_metrics.entropy)
+        data_logger.save_csv_row("kl_estimate", loss_metrics.kl_estimate)
+        loss_history.append(float(np.asarray(loss)))
         if training_loop % config.evaluation_frequency == 0:
             eval_rewards = evaluation_trajectory(
                 model=nnx.merge(train_state.model_def, train_state.model_state),
@@ -152,10 +170,12 @@ def train_agent(
             )
             data_logger.save_csv_row("eval_rewards", eval_rewards)
             eval_history.append(float(np.mean(eval_rewards)))
+        latest_eval = eval_history[-1] if eval_history else float("nan")
         progress_bar.set_postfix(
             {
                 "loss": f"{loss_history[-1]:.4f}",
-                "eval reward": f"{eval_history[-1]:.2f}",
+                "eval reward": f"{latest_eval:.2f}",
+                "kl": f"{float(np.asarray(loss_metrics.kl_estimate)):.4f}",
             }
         )
     data_logger.wait_until_finished()

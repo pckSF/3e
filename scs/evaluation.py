@@ -72,7 +72,7 @@ def evaluation_trajectory(
         rewards += step_reward * np.logical_not(terminated)
 
         reset_mask = np.logical_or(terminal, truncated)
-        terminated = np.logical_or(terminated, terminal)
+        terminated = np.logical_or(terminated, reset_mask)
         if reset_mask.any():
             # Required to avoid error raised when passing an action to a terminated
             # environment. TODO: Better way to handle this?
