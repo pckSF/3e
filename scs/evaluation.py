@@ -21,11 +21,11 @@ if TYPE_CHECKING:
 @nnx.jit
 def actor_action(
     model_policy: Policy | PolicyValue,
-    states: jax.Array,
+    observations: jax.Array,
     key: jax.Array,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Samples an action from an actor's policy."""
-    a_means, a_log_stds = model_policy(states)[:2]
+    a_means, a_log_stds = model_policy(observations)[:2]
     actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
         key, shape=a_means.shape
     )
@@ -57,15 +57,15 @@ def evaluation_trajectory(
     n_envs = int(config.n_actors)
     rewards = np.zeros((n_envs,), dtype=np.float32)
 
-    state: np.ndarray = envs.reset()[0]
+    observation: np.ndarray = envs.reset()[0]
     terminated = np.zeros((n_envs,), dtype=bool)
     for _ts in range(10000):
         action, _a_mean, _a_log_std = actor_action(
             model,
-            jnp.asarray(state, dtype=jnp.float32),
+            jnp.asarray(observation, dtype=jnp.float32),
             rng.action_select(),
         )
-        state, step_reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
+        observation, step_reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
             np.tanh(np.asarray(action))
         )
 
@@ -76,7 +76,7 @@ def evaluation_trajectory(
         if reset_mask.any():
             # Required to avoid error raised when passing an action to a terminated
             # environment. TODO: Better way to handle this?
-            state = envs.reset(options={"reset_mask": reset_mask})[0]
+            observation = envs.reset(options={"reset_mask": reset_mask})[0]
         if terminated.all():
             break
     return rewards
@@ -118,16 +118,16 @@ def render_trajectory(
         episode_trigger=lambda _: True,  # Record every episode
     )
 
-    state: np.ndarray = env.reset()[0]
+    observation: np.ndarray = env.reset()[0]
     total_reward = 0.0
 
     for _ts in range(max_steps):
         action, _a_mean, _a_log_std = actor_action(
             model,
-            jnp.asarray(state, dtype=jnp.float32),
+            jnp.asarray(observation, dtype=jnp.float32),
             rng.action_select(),
         )
-        state, step_reward, terminal, truncated, _info = env.step(
+        observation, step_reward, terminal, truncated, _info = env.step(
             np.tanh(np.asarray(action))
         )
         total_reward += float(step_reward)

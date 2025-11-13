@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 def _scan_timestep(
-    env_state: State,
+    env_observation: State,
     key: jax.Array,
     train_state: NNTrainingState,
     step: Callable[[State, jax.Array], State],
@@ -41,7 +41,7 @@ def collect_trajectories(
     model: PolicyValue,
     envs: gym.vector.SyncVectorEnv,
     reset_mask: np.ndarray,
-    state: np.ndarray,
+    observation: np.ndarray,
     rng: nnx.Rngs,
     config: PPOConfig,
 ) -> tuple[TrajectoryData, np.ndarray, np.ndarray]:
@@ -60,35 +60,36 @@ def collect_trajectories(
         reset_mask: A boolean array indicating which environments in the vector
             should be reset before starting data collection. This is passed from
             the previous collection step to handle episodes that terminated.
-        state: The initial state of the environments. This is the last observed
-            state from the previous collection step, ensuring continuity.
+        observation: The initial observation of the environments. This is the
+            last observation from the previous collection step, ensuring
+            continuity.
         rng: The JAX random number generator state.
         config: The PPO configuration object.
 
     Returns:
         A tuple containing:
-            - A `TrajectoryDataPPO` object holding the collected states, actions,
-                rewards, next_states, and terminal signals.
+            - A `TrajectoryDataPPO` object holding the collected observations,
+                actions, rewards, next_observations, and terminal signals.
             - The final `reset_mask`, indicating which environments terminated
             during this collection phase, to be used in the next call.
     """
     n_envs = int(config.n_actors)
     max_steps = int(config.n_actor_steps)
 
-    states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
+    observations = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     rewards = np.zeros((max_steps, n_envs), dtype=np.float32)
     actions = np.zeros((max_steps, n_envs, 3), dtype=np.float32)
     action_log_densities = np.zeros((max_steps, n_envs, 3), dtype=np.float32)
-    next_states = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
+    next_observations = np.zeros((max_steps, n_envs, 11), dtype=np.float32)
     terminals = np.zeros((max_steps, n_envs), dtype=np.bool_)
 
     if reset_mask.any():
-        state = envs.reset(options={"reset_mask": reset_mask})[0]
+        observation = envs.reset(options={"reset_mask": reset_mask})[0]
 
     for ts in range(max_steps):
         action, a_mean, a_log_std = actor_action(
             model,
-            jnp.asarray(state, dtype=jnp.float32),
+            jnp.asarray(observation, dtype=jnp.float32),
             rng.action_select(),
         )
         action_log_density = jax.jit(norm.logpdf)(
@@ -96,12 +97,12 @@ def collect_trajectories(
             loc=a_mean,
             scale=jnp.exp(a_log_std),
         )
-        next_state, reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
+        next_observation, reward, terminal, truncated, _info = envs.step(  # type: ignore[var-annotated]
             np.tanh(np.asarray(action))
         )
 
-        states[ts] = state
-        next_states[ts] = next_state
+        observations[ts] = observation
+        next_observations[ts] = next_observation
         actions[ts] = np.asarray(action)
         action_log_densities[ts] = np.asarray(action_log_density)
         rewards[ts] = reward
@@ -109,21 +110,21 @@ def collect_trajectories(
 
         reset_mask = np.logical_or(terminal, truncated)
         if reset_mask.any():
-            state = envs.reset(options={"reset_mask": reset_mask})[0]
+            observation = envs.reset(options={"reset_mask": reset_mask})[0]
         else:
-            state = next_state
+            observation = next_observation
 
     return (
         TrajectoryData(
-            states=jnp.asarray(states, dtype=jnp.float32),
+            observations=jnp.asarray(observations, dtype=jnp.float32),
             actions=jnp.asarray(actions, dtype=jnp.float32),
             action_log_densities=jnp.asarray(action_log_densities, dtype=jnp.float32),
             rewards=jnp.asarray(rewards, dtype=jnp.float32),
-            next_states=jnp.asarray(next_states, dtype=jnp.float32),
+            next_observations=jnp.asarray(next_observations, dtype=jnp.float32),
             terminals=jnp.asarray(terminals, dtype=jnp.uint32),
             n_steps=max_steps,
             agents=n_envs,
         ),
         reset_mask,
-        state,
+        observation,
     )

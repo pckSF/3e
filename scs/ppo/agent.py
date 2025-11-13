@@ -25,11 +25,11 @@ if TYPE_CHECKING:
 @nnx.jit
 def actor_action(
     model: PolicyValue,
-    states: jax.Array,
+    observations: jax.Array,
     key: jax.Array,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Samples an action from the actor's policy."""
-    a_means, a_log_stds, _values = model(states)
+    a_means, a_log_stds, _values = model(observations)
     actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
         key, shape=a_means.shape
     )
@@ -67,7 +67,7 @@ def loss_fn(
     Returns:
         The total PPO loss for the batch.
     """
-    a_means, a_log_stds, values = model(batch.states)
+    a_means, a_log_stds, values = model(batch.observations)
     values = jnp.squeeze(values)
     returns = batch_computations.advantages + batch_computations.values
     value_loss = jnp.mean((returns - values) ** 2)

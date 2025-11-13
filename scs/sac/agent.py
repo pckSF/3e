@@ -25,11 +25,11 @@ if TYPE_CHECKING:
 @nnx.jit
 def actor_action(
     model_policy: Policy,
-    states: jax.Array,
+    observations: jax.Array,
     key: jax.Array,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Samples an action from the actor's policy."""
-    a_means, a_log_stds = model_policy(states)
+    a_means, a_log_stds = model_policy(observations)
     actions = a_means + jnp.exp(a_log_stds) * jax.random.normal(
         key, shape=a_means.shape
     )
@@ -51,14 +51,14 @@ def compute_q_target(
     """
     next_actions, a_means, a_log_stds = actor_action(
         model_policy,
-        batch.next_states,
+        batch.next_observations,
         key,
     )
     next_action_log_densities = norm.logpdf(
         next_actions, loc=a_means, scale=jnp.exp(a_log_stds)
     ).sum(axis=-1)
-    q1_values = jnp.squeeze(model_q1_target(batch.next_states, next_actions))
-    q2_values = jnp.squeeze(model_q2_target(batch.next_states, next_actions))
+    q1_values = jnp.squeeze(model_q1_target(batch.next_observations, next_actions))
+    q2_values = jnp.squeeze(model_q2_target(batch.next_observations, next_actions))
     min_q_values = jnp.minimum(q1_values, q2_values)
     next_values = min_q_values - config.entropy_coefficient * next_action_log_densities
     next_values *= 1.0 - batch.terminals
@@ -72,7 +72,7 @@ def qvalue_loss_fn(
     target_qvalue: jax.Array,
 ) -> jax.Array:
     """Mean squared error between predicted and target Q-values."""
-    q_values = jnp.squeeze(model_qvalue(batch.states, batch.actions))
+    q_values = jnp.squeeze(model_qvalue(batch.observations, batch.actions))
     return jnp.mean((target_qvalue - q_values) ** 2)
 
 
@@ -92,14 +92,14 @@ def policy_loss_fn(
     """
     actions, a_means, a_log_stds = actor_action(
         model_policy,
-        batch.states,
+        batch.observations,
         key,
     )
     action_log_densities = norm.logpdf(
         actions, loc=a_means, scale=jnp.exp(a_log_stds)
     ).sum(axis=-1)
-    q1_values = jnp.squeeze(model_q1(batch.states, actions))
-    q2_values = jnp.squeeze(model_q2(batch.states, actions))
+    q1_values = jnp.squeeze(model_q1(batch.observations, actions))
+    q2_values = jnp.squeeze(model_q2(batch.observations, actions))
     min_q_values = jnp.minimum(q1_values, q2_values)
     policy_value = jnp.mean(
         config.entropy_coefficient * action_log_densities - min_q_values

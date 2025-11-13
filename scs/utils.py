@@ -37,25 +37,25 @@ def get_train_batch_indices(
         )
 
 
-def compare_states(
-    state1: jax.Array | np.ndarray,
-    state2: jax.Array | np.ndarray,
+def compare_observations(
+    observation1: jax.Array | np.ndarray,
+    observation2: jax.Array | np.ndarray,
     mask: jax.Array | np.ndarray | None = None,
 ) -> bool:
-    """Compares two state arrays for equality."""
+    """Compares two observation arrays for equality."""
     if mask is not None:
-        state1, state2 = state1[mask], state2[mask]
-    return bool(jnp.array_equal(state1, state2))
+        observation1, observation2 = observation1[mask], observation2[mask]
+    return bool(jnp.array_equal(observation1, observation2))
 
 
-def states_healthcheck(
-    state1: jax.Array | np.ndarray,
-    state2: jax.Array | np.ndarray,
+def observations_healthcheck(
+    observation1: jax.Array | np.ndarray,
+    observation2: jax.Array | np.ndarray,
     mask: jax.Array | np.ndarray,
 ) -> None:
-    if not compare_states(state1, state2, mask):
+    if not compare_observations(observation1, observation2, mask):
         raise ValueError(
-            f"Relevant state arrays do not match!\n"
-            f"State 1: {state1[mask]}\n"
-            f"State 2: {state2[mask]}"
+            f"Relevant observation arrays do not match!\n"
+            f"Observation 1: {observation1[mask]}\n"
+            f"Observation 2: {observation2[mask]}"
         )

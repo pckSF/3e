@@ -56,7 +56,7 @@ def calculate_expected_return(
 ) -> jax.Array:
     """Computes the discounted returns for a trajectory.
 
-    Terminal states reset the discounted sum to account for episode endings and
+    Terminal steps reset the discounted sum to account for episode endings and
     the environment restarting within a trajectory.
 
     Args:
@@ -97,7 +97,7 @@ def gae_from_td_residuals(
 ) -> jax.Array:
     """Computes Generalized Advantage Estimation (GAE) from TD residuals.
 
-    Terminal states reset the discounted sum to account for episode endings and
+    Terminal steps reset the discounted sum to account for episode endings and
     the environment restarting within a trajectory.
 
     Args:

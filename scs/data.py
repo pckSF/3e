@@ -20,11 +20,11 @@ class TrajectoryData:
     """JAX-friendly PyTree data container.
 
     Fields that are scanned over axis 0:
-    - states:               [T, N, ...]
+    - observations:         [T, N, ...]
     - actions:              [T, N, ...]
     - action_log_densities: [T, N, ...]
     - rewards:              [T, N]
-    - next_states:          [T, N, ...]
+    - next_observations:    [T, N, ...]
     - terminals:            [T, N]
 
     Static metadata:
@@ -33,11 +33,11 @@ class TrajectoryData:
     - samples:              bool
     """
 
-    states: jax.Array
+    observations: jax.Array
     actions: jax.Array
     action_log_densities: jax.Array
     rewards: jax.Array
-    next_states: jax.Array
+    next_observations: jax.Array
     terminals: jax.Array
     n_steps: int = struct.field(pytree_node=False)
     agents: int = struct.field(pytree_node=False)
@@ -53,11 +53,11 @@ class TrajectoryData:
     def save(self, path: str) -> None:
         """Saves TrajectoryData to a pickle file."""
         data_dict = {
-            "states": self.states,
+            "observations": self.observations,
             "actions": self.actions,
             "action_log_densities": self.action_log_densities,
             "rewards": self.rewards,
-            "next_states": self.next_states,
+            "next_observations": self.next_observations,
             "terminals": self.terminals,
             "n_steps": self.n_steps,
             "agents": self.agents,
@@ -71,19 +71,21 @@ def stack_agent_trajectories(data: TrajectoryData) -> TrajectoryData:
     """Stacks the agent dimension into the batch dimension.
 
     Returns:
-        A TrajectoryData object with shape [T * N, ...] for states, actions,
-        action_log_densities, rewards, next_states, and terminals.
+        A TrajectoryData object with shape [T * N, ...] for observations,
+        actions, action_log_densities, rewards, next_observations, and terminals.
     """
     steps, agents = data.n_steps, data.agents
     return TrajectoryData(
-        states=data.states.reshape((steps * agents, *data.states.shape[2:])),
+        observations=data.observations.reshape(
+            (steps * agents, *data.observations.shape[2:])
+        ),
         actions=data.actions.reshape((steps * agents, *data.actions.shape[2:])),
         action_log_densities=data.action_log_densities.reshape(
             (steps * agents, *data.action_log_densities.shape[2:])
         ),
         rewards=data.rewards.reshape((steps * agents,)),
-        next_states=data.next_states.reshape(
-            (steps * agents, *data.next_states.shape[2:])
+        next_observations=data.next_observations.reshape(
+            (steps * agents, *data.next_observations.shape[2:])
         ),
         terminals=data.terminals.reshape((steps * agents,)),
         n_steps=steps * agents,
@@ -97,11 +99,11 @@ def get_trajectory_batch(
 ) -> TrajectoryData:
     """Returns a batch of data based on the provided indices."""
     return TrajectoryData(
-        states=data.states[batch_indices],
+        observations=data.observations[batch_indices],
         actions=data.actions[batch_indices],
         action_log_densities=data.action_log_densities[batch_indices],
         rewards=data.rewards[batch_indices],
-        next_states=data.next_states[batch_indices],
+        next_observations=data.next_observations[batch_indices],
         terminals=data.terminals[batch_indices],
         n_steps=batch_indices.shape[0],
         agents=data.agents,
@@ -175,8 +177,8 @@ def compute_advantages(
     Returns:
         A new TrajectoryGAE object with GAE and value data.
     """
-    values = model.get_values(trajectory.states)
-    next_values = model.get_values(trajectory.next_states)
+    values = model.get_values(trajectory.observations)
+    next_values = model.get_values(trajectory.next_observations)
     advantages = calculate_gae(
         rewards=trajectory.rewards,
         values=values,

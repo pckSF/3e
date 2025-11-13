@@ -98,7 +98,7 @@ def train_agent(
     TODO: Is this even necessary?
 
     Args:
-        train_state: The initial state of the neural network model.
+        train_state: The initial training state of the neural network model.
         envs: The vectorized gym environment for training.
         config: The agent's configuration.
         data_logger: A logger for saving training data and model checkpoints.
@@ -110,18 +110,18 @@ def train_agent(
         of the loss and evaluation histories.
     """
     data_logger.store_metadata("config", config.to_dict())
-    states: np.ndarray = envs.reset()[0]
+    observations: np.ndarray = envs.reset()[0]
     reset_mask = np.zeros((config.n_actors,), dtype=bool)
     loss_history: list[float] = []
     eval_history: list[float] = []
     eval_envs: gym.vector.SyncVectorEnv = deepcopy(envs)
     progress_bar: tqdm = tqdm(range(max_training_loops), desc="Training Loops")
     for training_loop in progress_bar:
-        trajectories, reset_mask, states = collect_trajectories(
+        trajectories, reset_mask, observations = collect_trajectories(
             model=nnx.merge(train_state.model_def, train_state.model_state),
             envs=envs,
             reset_mask=reset_mask,
-            state=states,
+            observation=observations,
             config=config,
             rng=rngs,
         )

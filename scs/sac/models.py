@@ -52,13 +52,13 @@ class QValue(nnx.Module):
             rngs=rngs,
         )
 
-    def __call__(self, state: jax.Array, actions: jax.Array) -> jax.Array:
-        """Computes qvalue estimates for states-action pairs.
+    def __call__(self, observation: jax.Array, actions: jax.Array) -> jax.Array:
+        """Computes qvalue estimates for observation-action pairs.
 
         Returns:
-            - The state-action pair qvalue estimates.
+            - The observation-action pair qvalue estimates.
         """
-        x = jnp.concatenate([state, actions], axis=-1)
+        x = jnp.concatenate([observation, actions], axis=-1)
         v = nnx.relu(self.layernorm_1(self.linear_1(x)))
         v = nnx.relu(self.layernorm_2(self.linear_2(v)))
         v = nnx.relu(self.layernorm_3(self.linear_3(v)))
@@ -116,15 +116,15 @@ class Policy(nnx.Module):
             rngs=rngs,
         )
 
-    def __call__(self, state: jax.Array) -> tuple[jax.Array, jax.Array]:
-        """Computes action distribution parameters for states.
+    def __call__(self, observation: jax.Array) -> tuple[jax.Array, jax.Array]:
+        """Computes action distribution parameters for observations.
 
         Returns:
             A tuple containing:
             - The action means.
             - The action log standard deviations.
         """
-        p = nnx.relu(self.layernorm_1(self.linear_1(state)))
+        p = nnx.relu(self.layernorm_1(self.linear_1(observation)))
         p = nnx.relu(self.layernorm_2(self.linear_2(p)))
         p = nnx.relu(self.layernorm_3(self.linear_3(p)))
 

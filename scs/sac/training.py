@@ -53,7 +53,7 @@ def update_on_batches(
     Returns:
         Updated training states and arrays of losses for each sample.
     """
-    keys = jax.random.split(key, (batch.states.shape[0], 2))
+    keys = jax.random.split(key, (batch.observations.shape[0], 2))
     (
         (train_state_policy, train_state_q1, train_state_q2),
         (loss_policy, loss_q1, loss_q2),
@@ -113,10 +113,10 @@ def train_agent(
     data_logger.store_metadata("config", config.to_dict())
     replay_buffer: ReplayBuffer = ReplayBuffer(
         max_size=config.replay_buffer_size,
-        state_dim=11,
+        observation_dim=11,
         action_dim=3,
     )
-    state: np.ndarray = envs.reset()[0]
+    observation: np.ndarray = envs.reset()[0]
     policy_model = nnx.merge(
         train_state_policy.model_def, train_state_policy.model_state
     )
@@ -126,8 +126,8 @@ def train_agent(
     eval_envs: gym.vector.SyncVectorEnv = deepcopy(envs)
     progress_bar: tqdm = tqdm(range(max_training_loops), desc="Training Loops")
     for training_loop in progress_bar:
-        state, replay_buffer = sample_transition_to_buffer(
-            state=state,
+        observation, replay_buffer = sample_transition_to_buffer(
+            observation=observation,
             policy_model=policy_model,
             envs=envs,
             replay_buffer=replay_buffer,

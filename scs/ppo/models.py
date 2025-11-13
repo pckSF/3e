@@ -102,20 +102,22 @@ class PolicyValue(nnx.Module):
             rngs=rngs,
         )
 
-    def __call__(self, state: jax.Array) -> tuple[jax.Array, jax.Array, jax.Array]:
-        """Computes action distribution parameters and value estimates for states.
+    def __call__(
+        self, observation: jax.Array
+    ) -> tuple[jax.Array, jax.Array, jax.Array]:
+        """Computes action distribution parameters and value estimates for observations.
 
         Returns:
             A tuple containing:
             - The action means.
             - The action log standard deviations.
-            - The state value estimates.
+            - The value-function estimates.
         """
-        v = nnx.relu(self.value_layernorm_1(self.value_linear_1(state)))
+        v = nnx.relu(self.value_layernorm_1(self.value_linear_1(observation)))
         v = nnx.relu(self.value_layernorm_2(self.value_linear_2(v)))
         v = nnx.relu(self.value_layernorm_3(self.value_linear_3(v)))
 
-        p = nnx.relu(self.policy_layernorm_1(self.policy_linear_1(state)))
+        p = nnx.relu(self.policy_layernorm_1(self.policy_linear_1(observation)))
         p = nnx.relu(self.policy_layernorm_2(self.policy_linear_2(p)))
         p = nnx.relu(self.policy_layernorm_3(self.policy_linear_3(p)))
 
@@ -126,7 +128,7 @@ class PolicyValue(nnx.Module):
         )
 
     @nnx.jit
-    def get_values(self, states: jax.Array) -> jax.Array:
-        """Computes value estimates for the given states."""
-        _a_means, _a_log_stds, values = self(states)
+    def get_values(self, observations: jax.Array) -> jax.Array:
+        """Computes value estimates for the given observations."""
+        _a_means, _a_log_stds, values = self(observations)
         return jnp.squeeze(values)
