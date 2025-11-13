@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import (
     TYPE_CHECKING,
 )
@@ -10,6 +9,8 @@ import jax.numpy as jnp
 from mujoco_playground import registry
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from mujoco_playground import (
         MjxEnv,
         State,
@@ -45,7 +46,7 @@ def make_vectorized_env(
             keys,
         )
 
-    def condition_reset(
+    def conditional_reset(
         env_state: State,
         reset_mask: jax.Array,
         key: jax.Array,
@@ -66,6 +67,6 @@ def make_vectorized_env(
     return (
         env,
         jax.vmap(env.step, in_axes=(0, 0)),
-        condition_reset,
+        conditional_reset,
         jax.vmap(env.reset),
     )
