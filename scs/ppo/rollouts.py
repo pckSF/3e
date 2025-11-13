@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import (
-    TYPE_CHECKING,
-)
+from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
@@ -26,15 +24,33 @@ if TYPE_CHECKING:
 
 
 def _scan_timestep(
-    env_observation: State,
+    env_state: State,
     key: jax.Array,
     train_state: NNTrainingState,
     step: Callable[[State, jax.Array], State],
-    reset: Callable[[jax.Array], State],
+    conditional_reset: Callable[[State, jax.Array, jax.Array], State],
 ) -> tuple[
     State, tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]
 ]:
     model = nnx.merge(train_state.model_def, train_state.model_state)
+    a_mean, a_log_std, _value = model(env_state.obs)
+    action = a_mean + jnp.exp(a_log_std) * jax.random.normal(key, shape=a_mean.shape)
+    action_log_density = norm.logpdf(
+        action,
+        loc=a_mean,
+        scale=jnp.exp(a_log_std),
+    ).sum(axis=-1)
+    next_env_state = step(env_state, jnp.tanh(action))
+    reset_mask = next_env_state.done.astype(bool)
+    env_state = conditional_reset(next_env_state, reset_mask, key)
+    return env_state, (
+        env_state.obs,
+        action,
+        action_log_density,
+        next_env_state.reward,
+        next_env_state.obs,
+        next_env_state.done,
+    )
 
 
 def collect_trajectories(
