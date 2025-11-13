@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import partial
 from typing import (
     TYPE_CHECKING,
 )
@@ -36,7 +37,7 @@ def make_vectorized_env(
     """
     env = registry.load(env_name)
 
-    @jax.vmap(in_axes=(0, 0, 0))
+    @partial(jax.vmap, in_axes=(0, 0, 0))
     def _reset_branch(state: State, mask: jax.Array, keys: jax.Array) -> State:
         """Resets the environments whose `mask` entry evaluates to True."""
         return jax.lax.cond(

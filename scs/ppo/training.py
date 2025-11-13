@@ -18,7 +18,7 @@ from scs.data import (
 )
 from scs.evaluation import evaluation_trajectory
 from scs.ppo.agent import train_step
-from scs.ppo.rollouts import collect_trajectories
+from scs.ppo.rollouts import collect_trajectories_old
 from scs.utils import get_train_batch_indices
 
 if TYPE_CHECKING:
@@ -117,7 +117,7 @@ def train_agent(
     eval_envs: gym.vector.SyncVectorEnv = deepcopy(envs)
     progress_bar: tqdm = tqdm(range(max_training_loops), desc="Training Loops")
     for training_loop in progress_bar:
-        trajectories, reset_mask, observations = collect_trajectories(
+        trajectories, reset_mask, observations = collect_trajectories_old(
             model=nnx.merge(train_state.model_def, train_state.model_state),
             envs=envs,
             reset_mask=reset_mask,

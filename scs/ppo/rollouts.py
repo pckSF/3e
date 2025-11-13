@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from functools import partial
 from typing import TYPE_CHECKING
 
+from flax import nnx
 import jax
 import jax.numpy as jnp
 from jax.scipy.stats import norm
@@ -14,7 +15,8 @@ from scs.data import (
 from scs.ppo.agent import actor_action
 
 if TYPE_CHECKING:
-    from flax import nnx
+    from collections.abc import Callable
+
     import gymnasium as gym
     from mujoco_playground import State
 
@@ -32,6 +34,7 @@ def _scan_timestep(
 ) -> tuple[
     State, tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]
 ]:
+    """Performs a single timestep and resets the environment if required."""
     model = nnx.merge(train_state.model_def, train_state.model_state)
     a_mean, a_log_std, _value = model(env_state.obs)
     action = a_mean + jnp.exp(a_log_std) * jax.random.normal(key, shape=a_mean.shape)
@@ -54,6 +57,37 @@ def _scan_timestep(
 
 
 def collect_trajectories(
+    train_state: NNTrainingState,
+    env_state: State,
+    config: PPOConfig,
+    step: Callable[[State, jax.Array], State],
+    conditional_reset: Callable[[State, jax.Array, jax.Array], State],
+    keys: jax.Array,
+) -> tuple[TrajectoryData, State]:
+    """Rolls out trajectory of `n_actor_steps` length for `n_actors` in parallel."""
+    keys = jax.random.split(keys, num=(config.n_actor_steps, config.n_actors))
+    env_state, trajectory = jax.lax.scan(
+        partial(
+            _scan_timestep,
+            train_state=train_state,
+            step=step,
+            conditional_reset=conditional_reset,
+        ),
+        env_state,
+        keys,
+    )
+    return (
+        TrajectoryData(
+            *trajectory,
+            n_steps=config.n_actor_steps,
+            agents=config.n_actors,
+            samples=False,
+        ),
+        env_state,
+    )
+
+
+def collect_trajectories_old(
     model: PolicyValue,
     envs: gym.vector.SyncVectorEnv,
     reset_mask: np.ndarray,
