@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import (
     TYPE_CHECKING,
 )
@@ -17,9 +18,23 @@ from scs.ppo.agent import actor_action
 if TYPE_CHECKING:
     from flax import nnx
     import gymnasium as gym
+    from mujoco_playground import State
 
+    from scs.nn_modules import NNTrainingState
     from scs.ppo.defaults import PPOConfig
     from scs.ppo.models import PolicyValue
+
+
+def _scan_timestep(
+    env_state: State,
+    key: jax.Array,
+    train_state: NNTrainingState,
+    step: Callable[[State, jax.Array], State],
+    reset: Callable[[jax.Array], State],
+) -> tuple[
+    State, tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]
+]:
+    model = nnx.merge(train_state.model_def, train_state.model_state)
 
 
 def collect_trajectories(
